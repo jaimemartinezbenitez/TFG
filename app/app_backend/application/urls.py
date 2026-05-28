@@ -2,11 +2,15 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AccountDeleteView,
     AchievementViewSet,
+    ChangePasswordView,
     CollaborationViewSet,
     ExportViewSet,
     MetricViewSet,
     NotificationViewSet,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     ProductivitySessionViewSet,
     ProfileView,
     ProjectViewSet,
@@ -31,5 +35,9 @@ urlpatterns = [
     path('', include(router.urls)),
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/profile/', ProfileView.as_view(), name='profile'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
+    path('auth/delete-account/', AccountDeleteView.as_view(), name='delete-account'),
+    path('auth/password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
+    path('auth/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('calendar/', calendar_view, name='calendar'),
 ]

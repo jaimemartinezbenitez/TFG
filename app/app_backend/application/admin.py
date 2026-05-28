@@ -6,6 +6,7 @@ from .models import (
     Export,
     Metric,
     Notification,
+    PasswordResetToken,
     ProductivitySession,
     Project,
     Statistic,
@@ -40,6 +41,13 @@ class CollaborationAdmin(admin.ModelAdmin):
     list_display = ('user', 'owner', 'resource_type', 'role', 'assigned_at')
     search_fields = ('user__username', 'owner__username')
     list_filter = ('resource_type', 'role')
+
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'created_at', 'expires_at', 'used_at')
+    search_fields = ('user__username', 'user__email', 'token')
+    list_filter = ('created_at', 'expires_at', 'used_at')
 
 
 admin.site.register(Notification)

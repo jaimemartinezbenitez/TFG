@@ -1,7 +1,12 @@
+import secrets
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.db.models import Sum
+from django.utils import timezone
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import (
     Achievement,
@@ -9,7 +14,9 @@ from .models import (
     Export,
     Metric,
     Notification,
+    PasswordResetToken,
     ProductivitySession,
+    ProductivityTechnique,
     Project,
     ResourceType,
     Statistic,
@@ -18,6 +25,16 @@ from .models import (
 )
 
 User = get_user_model()
+
+
+class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        identifier = attrs.get(self.username_field)
+        if identifier and '@' in identifier:
+            user = User.objects.filter(email__iexact=identifier, is_active=True).first()
+            if user:
+                attrs[self.username_field] = user.get_username()
+        return super().validate(attrs)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -30,6 +47,22 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_role(self, obj):
         return getattr(getattr(obj, 'profile', None), 'role', 'STANDARD')
+
+    def validate_username(self, value):
+        queryset = User.objects.filter(username__iexact=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('Ya existe un usuario con este nombre.')
+        return value
+
+    def validate_email(self, value):
+        queryset = User.objects.filter(email__iexact=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('Ya existe un usuario con este correo.')
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -55,6 +88,78 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
         )
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, max_length=12, validators=[validate_password])
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('La contrasena actual no es correcta.')
+        return value
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['password'])
+        user.save(update_fields=['password'])
+        return user
+
+
+class AccountDeleteSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('La contrasena no es correcta.')
+        return value
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        user = User.objects.filter(email__iexact=value, is_active=True).first()
+        if not user:
+            raise serializers.ValidationError('No existe una cuenta activa asociada a este correo.')
+        self.user = user
+        return value
+
+    def save(self, **kwargs):
+        PasswordResetToken.objects.filter(
+            user=self.user,
+            used_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        ).update(used_at=timezone.now())
+        return PasswordResetToken.objects.create(
+            user=self.user,
+            token=secrets.token_urlsafe(32),
+            expires_at=timezone.now() + timedelta(minutes=30),
+        )
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, max_length=12, validators=[validate_password])
+
+    def validate_token(self, value):
+        reset_token = PasswordResetToken.objects.filter(token=value).select_related('user').first()
+        if not reset_token or not reset_token.is_valid or not reset_token.user.is_active:
+            raise serializers.ValidationError('El token no existe, ha caducado o ya fue usado.')
+        self.reset_token = reset_token
+        return value
+
+    def save(self, **kwargs):
+        user = self.reset_token.user
+        user.set_password(self.validated_data['password'])
+        user.save(update_fields=['password'])
+        self.reset_token.mark_as_used()
+        PasswordResetToken.objects.filter(user=user, used_at__isnull=True).exclude(
+            pk=self.reset_token.pk
+        ).update(used_at=timezone.now())
+        return user
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -138,7 +243,7 @@ class CollaborationSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'task', 'message', 'event_date', 'read']
+        fields = ['id', 'task', 'project', 'message', 'event_date', 'read']
         read_only_fields = ['id', 'event_date']
 
 
@@ -163,6 +268,33 @@ class ProductivitySessionSerializer(serializers.ModelSerializer):
         end_at = attrs.get('end_at', getattr(self.instance, 'end_at', None))
         if start_at and end_at and end_at < start_at:
             raise serializers.ValidationError('La fecha de fin no puede ser anterior al inicio.')
+
+        technique = attrs.get('technique', getattr(self.instance, 'technique', None))
+        configuration = attrs.get('configuration', getattr(self.instance, 'configuration', {}) or {})
+        if not isinstance(configuration, dict):
+            raise serializers.ValidationError({'configuration': 'La configuracion debe ser un objeto JSON.'})
+
+        def positive_int(name, required=True):
+            value = configuration.get(name)
+            if value in (None, '') and not required:
+                return
+            if not isinstance(value, int) or value <= 0:
+                raise serializers.ValidationError({
+                    'configuration': f'El campo {name} debe ser un entero positivo.'
+                })
+
+        if technique == ProductivityTechnique.POMODORO:
+            positive_int('work_minutes')
+            positive_int('break_minutes')
+            positive_int('cycles', required=False)
+        elif technique == ProductivityTechnique.TIME_BLOCKING:
+            positive_int('block_minutes')
+        elif technique == ProductivityTechnique.FIFTY_TWO_SEVENTEEN:
+            configuration.setdefault('work_minutes', 52)
+            configuration.setdefault('break_minutes', 17)
+            positive_int('work_minutes')
+            positive_int('break_minutes')
+        attrs['configuration'] = configuration
         return attrs
 
 

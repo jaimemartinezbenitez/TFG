@@ -55,6 +55,40 @@ class ExportFormat(models.TextChoices):
     PDF = 'PDF', 'PDF'
 
 
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens',
+    )
+    token = models.CharField(max_length=128, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_used(self):
+        return self.used_at is not None
+
+    @property
+    def is_valid(self):
+        return not self.is_used and not self.is_expired
+
+    def mark_as_used(self):
+        self.used_at = timezone.now()
+        self.save(update_fields=['used_at'])
+
+    def __str__(self):
+        return f'Recuperacion password {self.user} ({self.created_at:%Y-%m-%d %H:%M})'
+
+
 class UserProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -174,7 +208,20 @@ class Notification(models.Model):
         on_delete=models.CASCADE,
         related_name='notifications',
     )
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='notifications')
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        null=True,
+        blank=True,
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        null=True,
+        blank=True,
+    )
     message = models.CharField(max_length=255)
     event_date = models.DateTimeField(default=timezone.now)
     read = models.BooleanField(default=False)
