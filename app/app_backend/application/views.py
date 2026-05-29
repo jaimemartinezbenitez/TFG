@@ -3,6 +3,7 @@ from datetime import timedelta
 from smtplib import SMTPException
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
@@ -35,6 +36,7 @@ from .serializers import (
     CollaborationSerializer,
     EmailOrUsernameTokenObtainPairSerializer,
     ExportSerializer,
+    LogoutSerializer,
     MetricSerializer,
     NotificationSerializer,
     PasswordResetConfirmSerializer,
@@ -220,6 +222,14 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+class UserListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return get_user_model().objects.filter(is_active=True).exclude(pk=self.request.user.pk).order_by('username')
+
+
 class ChangePasswordView(generics.GenericAPIView):
     serializer_class = ChangePasswordSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -229,6 +239,17 @@ class ChangePasswordView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({'detail': 'Contrasena actualizada correctamente.'})
+
+
+class LogoutView(generics.GenericAPIView):
+    serializer_class = LogoutSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Sesion cerrada correctamente.'}, status=status.HTTP_200_OK)
 
 
 class AccountDeleteView(generics.GenericAPIView):
@@ -367,8 +388,21 @@ class CollaborationViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Collaboration.objects.none()
         if self.request.method not in permissions.SAFE_METHODS:
-            return Collaboration.objects.filter(owner=user)
-        return Collaboration.objects.filter(Q(owner=user) | Q(user=user))
+            queryset = Collaboration.objects.filter(owner=user)
+        else:
+            queryset = Collaboration.objects.filter(Q(owner=user) | Q(user=user))
+
+        resource_type = self.request.query_params.get('resource_type')
+        task_id = self.request.query_params.get('task')
+        project_id = self.request.query_params.get('project')
+
+        if resource_type:
+            queryset = queryset.filter(resource_type=resource_type)
+        if task_id:
+            queryset = queryset.filter(task_id=task_id)
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+        return queryset.select_related('user', 'owner', 'task', 'project')
 
     def perform_create(self, serializer):
         collaboration = serializer.save()
@@ -378,7 +412,7 @@ class CollaborationViewSet(viewsets.ModelViewSet):
             user=collaboration.user,
             task=collaboration.task,
             project=collaboration.project,
-            message=f'{collaboration.owner.username} ha compartido contigo "{resource_name}".',
+            message=f'{collaboration.owner.username} te ha invitado a colaborar en "{resource_name}".',
         )
 
 

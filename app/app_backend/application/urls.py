@@ -7,6 +7,7 @@ from .views import (
     ChangePasswordView,
     CollaborationViewSet,
     ExportViewSet,
+    LogoutView,
     MetricViewSet,
     NotificationViewSet,
     PasswordResetConfirmView,
@@ -17,6 +18,7 @@ from .views import (
     RegisterView,
     StatisticViewSet,
     TaskViewSet,
+    UserListView,
     calendar_view,
 )
 
@@ -35,7 +37,9 @@ urlpatterns = [
     path('', include(router.urls)),
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/profile/', ProfileView.as_view(), name='profile'),
+    path('users/', UserListView.as_view(), name='user-list'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/delete-account/', AccountDeleteView.as_view(), name='delete-account'),
     path('auth/password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
     path('auth/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),

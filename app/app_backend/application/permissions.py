@@ -8,15 +8,15 @@ class IsOwnerOrReadOnlyCollaborator(permissions.BasePermission):
         if hasattr(obj, 'owner') and obj.owner == request.user:
             return True
 
-        collaboration_filter = {'user': request.user}
         if obj.__class__.__name__ == 'Task':
-            collaboration_filter['task'] = obj
+            collaboration = Collaboration.objects.filter(user=request.user, task=obj).first()
+            if not collaboration and obj.project_id:
+                collaboration = Collaboration.objects.filter(user=request.user, project=obj.project).first()
         elif obj.__class__.__name__ == 'Project':
-            collaboration_filter['project'] = obj
+            collaboration = Collaboration.objects.filter(user=request.user, project=obj).first()
         else:
             return False
 
-        collaboration = Collaboration.objects.filter(**collaboration_filter).first()
         if not collaboration:
             return False
         if request.method in permissions.SAFE_METHODS:

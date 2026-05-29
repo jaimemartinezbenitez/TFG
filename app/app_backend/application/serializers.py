@@ -3,10 +3,12 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import (
     Achievement,
@@ -107,6 +109,18 @@ class ChangePasswordSerializer(serializers.Serializer):
         return user
 
 
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(write_only=True)
+
+    def save(self, **kwargs):
+        try:
+            RefreshToken(self.validated_data['refresh']).blacklist()
+        except TokenError as exc:
+            raise serializers.ValidationError({
+                'refresh': 'El token de refresco no es valido o ya ha caducado.'
+            }) from exc
+
+
 class AccountDeleteSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
@@ -164,11 +178,102 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class ProjectSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
+    collaborators = serializers.SerializerMethodField()
+    tasks_count = serializers.SerializerMethodField()
+    completed_tasks_count = serializers.SerializerMethodField()
+    progress_percentage = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    collaboration_role = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_invite_collaborators = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
-        fields = ['id', 'owner', 'name', 'description', 'start_date', 'end_date', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+        fields = [
+            'id',
+            'owner',
+            'collaborators',
+            'name',
+            'description',
+            'start_date',
+            'end_date',
+            'created_at',
+            'updated_at',
+            'tasks_count',
+            'completed_tasks_count',
+            'progress_percentage',
+            'is_owner',
+            'collaboration_role',
+            'can_edit',
+            'can_invite_collaborators',
+        ]
+        read_only_fields = [
+            'id',
+            'owner',
+            'collaborators',
+            'created_at',
+            'updated_at',
+            'tasks_count',
+            'completed_tasks_count',
+            'progress_percentage',
+            'is_owner',
+            'collaboration_role',
+            'can_edit',
+            'can_invite_collaborators',
+        ]
+
+    def _request_user(self):
+        request = self.context.get('request')
+        return getattr(request, 'user', None)
+
+    def _collaboration_for(self, obj):
+        user = self._request_user()
+        if not user or not user.is_authenticated or obj.owner_id == user.id:
+            return None
+        return Collaboration.objects.filter(user=user, project=obj).first()
+
+    def get_is_owner(self, obj):
+        user = self._request_user()
+        return bool(user and user.is_authenticated and obj.owner_id == user.id)
+
+    def get_collaboration_role(self, obj):
+        if self.get_is_owner(obj):
+            return 'OWNER'
+        collaboration = self._collaboration_for(obj)
+        return collaboration.role if collaboration else None
+
+    def get_can_edit(self, obj):
+        if self.get_is_owner(obj):
+            return True
+        collaboration = self._collaboration_for(obj)
+        return bool(collaboration and collaboration.role in ['EDITOR', 'ADMIN'])
+
+    def get_can_invite_collaborators(self, obj):
+        return self.get_is_owner(obj)
+
+    def get_collaborators(self, obj):
+        return [
+            {
+                'id': collaboration.id,
+                'user_id': collaboration.user_id,
+                'username': collaboration.user.username,
+                'email': collaboration.user.email,
+                'role': collaboration.role,
+            }
+            for collaboration in Collaboration.objects.filter(project=obj).select_related('user')
+        ]
+
+    def get_tasks_count(self, obj):
+        return obj.tasks.count()
+
+    def get_completed_tasks_count(self, obj):
+        return obj.tasks.filter(status=TaskStatus.COMPLETED).count()
+
+    def get_progress_percentage(self, obj):
+        total = self.get_tasks_count(obj)
+        if not total:
+            return 0
+        return round((self.get_completed_tasks_count(obj) / total) * 100)
 
     def validate(self, attrs):
         start_date = attrs.get('start_date', getattr(self.instance, 'start_date', None))
@@ -180,12 +285,18 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
+    collaborators = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    collaboration_role = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_invite_collaborators = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
         fields = [
             'id',
             'owner',
+            'collaborators',
             'project',
             'title',
             'description',
@@ -194,8 +305,68 @@ class TaskSerializer(serializers.ModelSerializer):
             'due_date',
             'created_at',
             'updated_at',
+            'is_owner',
+            'collaboration_role',
+            'can_edit',
+            'can_invite_collaborators',
         ]
-        read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id',
+            'owner',
+            'collaborators',
+            'created_at',
+            'updated_at',
+            'is_owner',
+            'collaboration_role',
+            'can_edit',
+            'can_invite_collaborators',
+        ]
+
+    def get_collaborators(self, obj):
+        return [
+            {
+                'id': collaboration.id,
+                'user_id': collaboration.user_id,
+                'username': collaboration.user.username,
+                'email': collaboration.user.email,
+                'role': collaboration.role,
+            }
+            for collaboration in Collaboration.objects.filter(task=obj).select_related('user')
+        ]
+
+    def _request_user(self):
+        request = self.context.get('request')
+        return getattr(request, 'user', None)
+
+    def _collaboration_for(self, obj):
+        user = self._request_user()
+        if not user or not user.is_authenticated or obj.owner_id == user.id:
+            return None
+        direct_collaboration = Collaboration.objects.filter(user=user, task=obj).first()
+        if direct_collaboration:
+            return direct_collaboration
+        if obj.project_id:
+            return Collaboration.objects.filter(user=user, project=obj.project).first()
+        return None
+
+    def get_is_owner(self, obj):
+        user = self._request_user()
+        return bool(user and user.is_authenticated and obj.owner_id == user.id)
+
+    def get_collaboration_role(self, obj):
+        if self.get_is_owner(obj):
+            return 'OWNER'
+        collaboration = self._collaboration_for(obj)
+        return collaboration.role if collaboration else None
+
+    def get_can_edit(self, obj):
+        if self.get_is_owner(obj):
+            return True
+        collaboration = self._collaboration_for(obj)
+        return bool(collaboration and collaboration.role in ['EDITOR', 'ADMIN'])
+
+    def get_can_invite_collaborators(self, obj):
+        return self.get_is_owner(obj)
 
     def validate_project(self, project):
         request = self.context.get('request')
@@ -211,19 +382,55 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class CollaborationSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
     owner = UserSerializer(read_only=True)
+    user_identifier = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    user_detail = UserSerializer(source='user', read_only=True)
+    resource_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Collaboration
-        fields = ['id', 'user', 'owner', 'resource_type', 'task', 'project', 'role', 'assigned_at']
+        fields = [
+            'id',
+            'user',
+            'user_identifier',
+            'user_detail',
+            'owner',
+            'resource_type',
+            'task',
+            'project',
+            'resource_name',
+            'role',
+            'assigned_at',
+        ]
         read_only_fields = ['id', 'owner', 'assigned_at']
 
+    def get_resource_name(self, obj):
+        resource = obj.task or obj.project
+        return getattr(resource, 'title', None) or getattr(resource, 'name', '')
+
     def validate(self, attrs):
-        resource_type = attrs.get('resource_type')
-        task = attrs.get('task')
-        project = attrs.get('project')
+        resource_type = attrs.get('resource_type', getattr(self.instance, 'resource_type', None))
+        task = attrs.get('task', getattr(self.instance, 'task', None))
+        project = attrs.get('project', getattr(self.instance, 'project', None))
         request = self.context.get('request')
+        user = attrs.get('user', getattr(self.instance, 'user', None))
+        user_identifier = attrs.pop('user_identifier', '').strip()
+
+        if user_identifier:
+            user = User.objects.filter(
+                Q(username__iexact=user_identifier) | Q(email__iexact=user_identifier)
+            ).first()
+            if not user:
+                raise serializers.ValidationError({
+                    'user_identifier': 'No existe ningun usuario con ese nombre o correo.'
+                })
+            attrs['user'] = user
+
+        if not user:
+            raise serializers.ValidationError({
+                'user_identifier': 'Debes indicar el usuario al que quieres invitar a colaborar.'
+            })
 
         if resource_type == ResourceType.TASK and not task:
             raise serializers.ValidationError('Debes indicar una tarea.')
@@ -236,7 +443,24 @@ class CollaborationSerializer(serializers.ModelSerializer):
         if request:
             resource_owner = task.owner if task else project.owner
             if resource_owner != request.user:
-                raise serializers.ValidationError('Solo el propietario puede compartir este recurso.')
+                raise serializers.ValidationError('Solo el propietario puede invitar colaboradores a este recurso.')
+            if user == request.user:
+                raise serializers.ValidationError({
+                    'user_identifier': 'No puedes compartir un recurso contigo mismo.'
+                })
+
+        duplicate_filter = {'user': user}
+        if resource_type == ResourceType.TASK:
+            duplicate_filter['task'] = task
+        else:
+            duplicate_filter['project'] = project
+        duplicate_queryset = Collaboration.objects.filter(**duplicate_filter)
+        if self.instance:
+            duplicate_queryset = duplicate_queryset.exclude(pk=self.instance.pk)
+        if duplicate_queryset.exists():
+            raise serializers.ValidationError({
+                'user_identifier': 'Este usuario ya es colaborador de este recurso.'
+            })
         return attrs
 
 

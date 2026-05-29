@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MenuLateral from './MenuLateral.vue'
 import type { ActivityItem, DashboardTaskItem } from './types'
 
 const props = defineProps<{
@@ -15,26 +16,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  logout: []
+  'open-profile': []
+  navigate: [section: string]
 }>()
 </script>
 
 <template>
   <section class="dashboard-frame">
-    <aside class="sidebar">
-      <img class="company-icon" src="/icono.png" alt="ConcentraPlus" />
-
-      <nav class="nav-menu" aria-label="Navegacion principal">
-        <button class="nav-item active" type="button"><span class="nav-icon">⌂</span>Inicio</button>
-        <button class="nav-item" type="button"><span class="nav-icon">☑</span>Tareas</button>
-        <button class="nav-item" type="button"><span class="nav-icon">▦</span>Proyecto</button>
-        <button class="nav-item" type="button"><span class="nav-icon">□</span>Calendario</button>
-        <button class="nav-item" type="button"><span class="nav-icon">✣</span>Tecnicas</button>
-        <button class="nav-item" type="button"><span class="nav-icon">▥</span>Estadisticas</button>
-        <button class="nav-item" type="button"><span class="nav-icon">☆</span>Logros</button>
-        <button class="nav-item" type="button"><span class="nav-icon">⚙</span>Exportar datos</button>
-      </nav>
-    </aside>
+    <MenuLateral active="inicio" @navigate="emit('navigate', $event)" />
 
     <section class="dashboard-content">
       <header class="dashboard-header">
@@ -42,7 +31,7 @@ const emit = defineEmits<{
           <h1>¡Hola, {{ props.displayName }}!</h1>
           <p>Aqui tienes un resumen de tu productividad</p>
         </div>
-        <button class="avatar-button" type="button" title="Cerrar sesion" @click="emit('logout')">
+        <button class="avatar-button" type="button" title="Ver perfil" @click="emit('open-profile')">
           <span>{{ props.initials }}</span>
         </button>
       </header>
@@ -86,7 +75,7 @@ const emit = defineEmits<{
           <h2>Actividad reciente:</h2>
           <ul class="activity-list">
             <li v-for="task in props.recentActivity" :key="task.id">
-              <span class="activity-dot" :class="{ pending: task.isPending }"></span>
+              <span class="activity-dot" :class="task.statusClass"></span>
               <span class="task-title">{{ task.title }}</span>
               <small>{{ task.statusLabel }}</small>
             </li>
@@ -108,50 +97,6 @@ const emit = defineEmits<{
   border-radius: 22px;
   background: #fff;
   overflow: hidden;
-}
-
-.sidebar {
-  padding: 12px 0 20px 20px;
-}
-
-.company-icon {
-  width: 62px;
-  height: 62px;
-  display: block;
-  margin-left: 5px;
-  margin-bottom: 24px;
-  object-fit: contain;
-}
-
-.nav-menu {
-  display: grid;
-  width: 182px;
-}
-
-.nav-item {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  align-items: center;
-  min-height: 52px;
-  border: 0;
-  border-right: 1px solid #75ddcb;
-  border-bottom: 1px solid #75ddcb;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.nav-item.active {
-  color: #715cff;
-  font-weight: 700;
-}
-
-.nav-icon {
-  width: 42px;
-  display: inline-grid;
-  place-items: center;
-  color: #101010;
-  font-size: 1.55rem;
 }
 
 .dashboard-content {
@@ -227,7 +172,7 @@ const emit = defineEmits<{
 }
 
 .stats-row .accent {
-  color: #715cff;
+  color: #3f6df6;
   font-weight: 800;
 }
 
@@ -295,11 +240,23 @@ const emit = defineEmits<{
   width: 20px;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: #8492df;
+  background: #f2b705;
 }
 
-.activity-dot.pending {
-  background: #e98383;
+.activity-dot.status-pending {
+  background: #f2b705;
+}
+
+.activity-dot.status-progress {
+  background: #00bf63;
+}
+
+.activity-dot.status-completed {
+  background: #3f6df6;
+}
+
+.activity-dot.status-cancelled {
+  background: #ff2d3b;
 }
 
 .empty-row,
@@ -315,25 +272,6 @@ const emit = defineEmits<{
 @media (max-width: 860px) {
   .dashboard-frame {
     grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    padding: 14px;
-    border-bottom: 1px solid #75ddcb;
-  }
-
-  .company-icon {
-    display: none;
-  }
-
-  .nav-menu {
-    width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .nav-item {
-    grid-template-columns: 34px 1fr;
-    min-height: 44px;
   }
 
   .dashboard-content {

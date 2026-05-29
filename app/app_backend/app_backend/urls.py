@@ -22,6 +22,7 @@ from application.views import EmailOrUsernameTokenObtainPairView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/auth/login/', EmailOrUsernameTokenObtainPairView.as_view(), name='login'),
     path('api/auth/token/', EmailOrUsernameTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('application.urls')),
