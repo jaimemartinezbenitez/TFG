@@ -32,6 +32,12 @@ class CollaboratorRole(models.TextChoices):
     ADMIN = 'ADMIN', 'Administrador'
 
 
+class CollaborationStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pendiente'
+    ACCEPTED = 'ACCEPTED', 'Aceptada'
+    REJECTED = 'REJECTED', 'Rechazada'
+
+
 class ProductivityTechnique(models.TextChoices):
     POMODORO = 'POMODORO', 'Pomodoro'
     TIME_BLOCKING = 'TIME_BLOCKING', 'Time blocking'
@@ -167,6 +173,7 @@ class Collaboration(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, blank=True)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True)
     role = models.CharField(max_length=20, choices=CollaboratorRole.choices, default=CollaboratorRole.READER)
+    status = models.CharField(max_length=20, choices=CollaborationStatus.choices, default=CollaborationStatus.PENDING)
     assigned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

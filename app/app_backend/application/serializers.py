@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import (
     Achievement,
     Collaboration,
+    CollaborationStatus,
     Export,
     Metric,
     Notification,
@@ -230,7 +231,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         user = self._request_user()
         if not user or not user.is_authenticated or obj.owner_id == user.id:
             return None
-        return Collaboration.objects.filter(user=user, project=obj).first()
+        return Collaboration.objects.filter(user=user, project=obj, status=CollaborationStatus.ACCEPTED).first()
 
     def get_is_owner(self, obj):
         user = self._request_user()
@@ -260,7 +261,10 @@ class ProjectSerializer(serializers.ModelSerializer):
                 'email': collaboration.user.email,
                 'role': collaboration.role,
             }
-            for collaboration in Collaboration.objects.filter(project=obj).select_related('user')
+            for collaboration in Collaboration.objects.filter(
+                project=obj,
+                status=CollaborationStatus.ACCEPTED,
+            ).select_related('user')
         ]
 
     def get_tasks_count(self, obj):
@@ -286,6 +290,8 @@ class ProjectSerializer(serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     collaborators = serializers.SerializerMethodField()
+    created_by = serializers.SerializerMethodField()
+    developed_by = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
     collaboration_role = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
@@ -297,6 +303,8 @@ class TaskSerializer(serializers.ModelSerializer):
             'id',
             'owner',
             'collaborators',
+            'created_by',
+            'developed_by',
             'project',
             'title',
             'description',
@@ -314,6 +322,8 @@ class TaskSerializer(serializers.ModelSerializer):
             'id',
             'owner',
             'collaborators',
+            'created_by',
+            'developed_by',
             'created_at',
             'updated_at',
             'is_owner',
@@ -321,6 +331,22 @@ class TaskSerializer(serializers.ModelSerializer):
             'can_edit',
             'can_invite_collaborators',
         ]
+
+    def get_created_by(self, obj):
+        return obj.owner.username
+
+    def get_developed_by(self, obj):
+        names = [obj.owner.username]
+        collaborators = Collaboration.objects.filter(
+            task=obj,
+            role__in=['EDITOR', 'ADMIN'],
+            status=CollaborationStatus.ACCEPTED,
+        ).select_related('user')
+        for collaboration in collaborators:
+            username = collaboration.user.username
+            if username not in names:
+                names.append(username)
+        return names
 
     def get_collaborators(self, obj):
         return [
@@ -331,7 +357,10 @@ class TaskSerializer(serializers.ModelSerializer):
                 'email': collaboration.user.email,
                 'role': collaboration.role,
             }
-            for collaboration in Collaboration.objects.filter(task=obj).select_related('user')
+            for collaboration in Collaboration.objects.filter(
+                task=obj,
+                status=CollaborationStatus.ACCEPTED,
+            ).select_related('user')
         ]
 
     def _request_user(self):
@@ -342,11 +371,11 @@ class TaskSerializer(serializers.ModelSerializer):
         user = self._request_user()
         if not user or not user.is_authenticated or obj.owner_id == user.id:
             return None
-        direct_collaboration = Collaboration.objects.filter(user=user, task=obj).first()
+        direct_collaboration = Collaboration.objects.filter(user=user, task=obj, status=CollaborationStatus.ACCEPTED).first()
         if direct_collaboration:
             return direct_collaboration
         if obj.project_id:
-            return Collaboration.objects.filter(user=user, project=obj.project).first()
+            return Collaboration.objects.filter(user=user, project=obj.project, status=CollaborationStatus.ACCEPTED).first()
         return None
 
     def get_is_owner(self, obj):
@@ -375,6 +404,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 user=request.user,
                 project=project,
                 role__in=['EDITOR', 'ADMIN'],
+                status=CollaborationStatus.ACCEPTED,
             ).exists()
             if not can_edit:
                 raise serializers.ValidationError('No tienes permisos sobre este proyecto.')
@@ -401,9 +431,11 @@ class CollaborationSerializer(serializers.ModelSerializer):
             'project',
             'resource_name',
             'role',
+            'status',
             'assigned_at',
         ]
-        read_only_fields = ['id', 'owner', 'assigned_at']
+        read_only_fields = ['id', 'owner', 'status', 'assigned_at']
+        validators = []
 
     def get_resource_name(self, obj):
         resource = obj.task or obj.project

@@ -18,6 +18,7 @@ from .models import (
     Achievement,
     ChartType,
     Collaboration,
+    CollaborationStatus,
     Export,
     Metric,
     Notification,
@@ -52,11 +53,19 @@ from .serializers import (
 
 
 def _accessible_project_ids(user):
-    return Collaboration.objects.filter(user=user, project__isnull=False).values('project_id')
+    return Collaboration.objects.filter(
+        user=user,
+        project__isnull=False,
+        status=CollaborationStatus.ACCEPTED,
+    ).values('project_id')
 
 
 def _accessible_task_ids(user):
-    return Collaboration.objects.filter(user=user, task__isnull=False).values('task_id')
+    return Collaboration.objects.filter(
+        user=user,
+        task__isnull=False,
+        status=CollaborationStatus.ACCEPTED,
+    ).values('task_id')
 
 
 def accessible_projects(user):
@@ -388,7 +397,7 @@ class CollaborationViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Collaboration.objects.none()
         if self.request.method not in permissions.SAFE_METHODS:
-            queryset = Collaboration.objects.filter(owner=user)
+            queryset = Collaboration.objects.filter(Q(owner=user) | Q(user=user))
         else:
             queryset = Collaboration.objects.filter(Q(owner=user) | Q(user=user))
 
@@ -405,7 +414,7 @@ class CollaborationViewSet(viewsets.ModelViewSet):
         return queryset.select_related('user', 'owner', 'task', 'project')
 
     def perform_create(self, serializer):
-        collaboration = serializer.save()
+        collaboration = serializer.save(owner=self.request.user, status=CollaborationStatus.PENDING)
         resource = collaboration.task or collaboration.project
         resource_name = getattr(resource, 'title', None) or getattr(resource, 'name', 'recurso')
         Notification.objects.create(
@@ -414,6 +423,24 @@ class CollaborationViewSet(viewsets.ModelViewSet):
             project=collaboration.project,
             message=f'{collaboration.owner.username} te ha invitado a colaborar en "{resource_name}".',
         )
+
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        collaboration = self.get_object()
+        if collaboration.user != request.user:
+            return Response({'detail': 'Solo el usuario invitado puede aceptar esta colaboracion.'}, status=status.HTTP_403_FORBIDDEN)
+        collaboration.status = CollaborationStatus.ACCEPTED
+        collaboration.save(update_fields=['status'])
+        return Response(self.get_serializer(collaboration).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        collaboration = self.get_object()
+        if collaboration.user != request.user:
+            return Response({'detail': 'Solo el usuario invitado puede rechazar esta colaboracion.'}, status=status.HTTP_403_FORBIDDEN)
+        collaboration.status = CollaborationStatus.REJECTED
+        collaboration.save(update_fields=['status'])
+        return Response(self.get_serializer(collaboration).data)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -468,6 +495,23 @@ class ProductivitySessionViewSet(viewsets.ModelViewSet):
         requested_status = request.data.get('status', SessionStatus.COMPLETED)
         if requested_status not in [SessionStatus.COMPLETED, SessionStatus.INTERRUPTED]:
             return Response({'status': 'Debe ser COMPLETED o INTERRUPTED.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        for field in ['total_duration', 'effective_time', 'completed_cycles']:
+            if field in request.data:
+                try:
+                    value = int(request.data[field])
+                except (TypeError, ValueError):
+                    return Response({field: 'Debe ser un numero entero.'}, status=status.HTTP_400_BAD_REQUEST)
+                if value < 0:
+                    return Response({field: 'No puede ser negativo.'}, status=status.HTTP_400_BAD_REQUEST)
+                setattr(productivity_session, field, value)
+
+        if 'configuration' in request.data:
+            configuration = request.data.get('configuration')
+            if not isinstance(configuration, dict):
+                return Response({'configuration': 'La configuracion debe ser un objeto JSON.'}, status=status.HTTP_400_BAD_REQUEST)
+            productivity_session.configuration = configuration
+
         productivity_session.status = requested_status
         productivity_session.end_at = timezone.now()
         if productivity_session.total_duration == 0:
