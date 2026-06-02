@@ -26,6 +26,7 @@ const emit = defineEmits<{
   'edit-task': [task: Task]
   'delete-task': [task: Task]
   'share-task': []
+  'remove-collaboration': [collaboration: Collaboration]
 }>()
 
 function priorityLabel(priority: Task['priority']) {
@@ -64,6 +65,22 @@ function formatDateTime(value?: string) {
   return new Intl.DateTimeFormat('es-ES').format(new Date(value))
 }
 
+function createdByLabel() {
+  return props.task?.created_by || props.task?.owner?.username || 'Sin usuario'
+}
+
+function developedByLabel() {
+  const developers = props.task?.developed_by?.length
+    ? props.task.developed_by
+    : [
+        props.task?.owner?.username,
+        ...(props.task?.collaborators || [])
+          .filter((collaborator) => collaborator.role !== 'READER')
+          .map((collaborator) => collaborator.username),
+      ].filter(Boolean)
+  return developers.length ? [...new Set(developers)].join(', ') : 'Sin usuario'
+}
+
 function roleLabel(role: Collaboration['role']) {
   return {
     READER: 'Lector',
@@ -78,6 +95,14 @@ function roleDescription(role: Collaboration['role']) {
     EDITOR: 'puede editar y participar',
     ADMIN: 'puede editar y participar',
   }[role]
+}
+
+function collaborationStatusLabel(status: Collaboration['status']) {
+  return {
+    PENDING: 'pendiente de aceptar',
+    ACCEPTED: 'aceptada',
+    REJECTED: 'rechazada',
+  }[status]
 }
 
 function selectUser(user: UserProfile) {
@@ -138,6 +163,14 @@ function selectUser(user: UserProfile) {
               <dt>Fecha limite</dt>
               <dd>{{ formatDate(props.task.due_date) }}</dd>
             </div>
+            <div>
+              <dt>Creada por</dt>
+              <dd>{{ createdByLabel() }}</dd>
+            </div>
+            <div>
+              <dt>Desarrollada por</dt>
+              <dd>{{ developedByLabel() }}</dd>
+            </div>
           </dl>
         </div>
 
@@ -177,7 +210,10 @@ function selectUser(user: UserProfile) {
             <ul>
               <li v-for="collaboration in props.collaborations" :key="collaboration.id">
                 <span>{{ collaboration.user_detail?.username || collaboration.user }}</span>
-                <small>{{ roleLabel(collaboration.role) }} · {{ roleDescription(collaboration.role) }}</small>
+                <small>{{ roleLabel(collaboration.role) }} · {{ roleDescription(collaboration.role) }} · {{ collaborationStatusLabel(collaboration.status) }}</small>
+                <button class="remove-collaborator-button" type="button" @click="emit('remove-collaboration', collaboration)">
+                  Eliminar
+                </button>
               </li>
             </ul>
           </div>
@@ -226,7 +262,7 @@ function selectUser(user: UserProfile) {
 .task-content {
   position: relative;
   min-width: 0;
-  padding: 72px 54px 74px 34px;
+  padding: 76px 54px 74px 34px;
 }
 
 .avatar-button {
@@ -264,7 +300,7 @@ function selectUser(user: UserProfile) {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
 }
 
@@ -289,7 +325,7 @@ function selectUser(user: UserProfile) {
 
 .access-note {
   width: min(760px, calc(100% - 80px));
-  margin: 12px 0 0;
+  margin: 6px 0 0;
   border-left: 4px solid #715cff;
   padding: 8px 12px;
   color: #33384a;
@@ -299,7 +335,7 @@ function selectUser(user: UserProfile) {
 
 .task-detail-grid {
   width: 100%;
-  margin-top: 18px;
+  margin-top: 8px;
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(480px, 1.35fr);
   gap: 50px;
@@ -380,8 +416,8 @@ function selectUser(user: UserProfile) {
 }
 
 .share-panel {
-  width: min(760px, 100%);
-  margin-top: 34px;
+  width: min(940px, 100%);
+  margin-top: 14px;
 }
 
 .share-panel h2 {
@@ -391,8 +427,9 @@ function selectUser(user: UserProfile) {
 
 .share-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(120px, 150px);
-  gap: 14px;
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 260px) minmax(180px, auto);
+  column-gap: 30px;
+  row-gap: 12px;
   align-items: end;
 }
 
@@ -417,6 +454,10 @@ function selectUser(user: UserProfile) {
   background: #fff;
 }
 
+.share-form select {
+  min-width: 220px;
+}
+
 .user-picker-button,
 .share-form button {
   height: 34px;
@@ -425,6 +466,12 @@ function selectUser(user: UserProfile) {
   color: #fff;
   background: #715cff;
   cursor: pointer;
+}
+
+.share-form button {
+  min-width: 180px;
+  padding: 0 18px;
+  white-space: nowrap;
 }
 
 .user-picker-button {
@@ -461,8 +508,9 @@ function selectUser(user: UserProfile) {
 }
 
 .collaborator-list li {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 16px;
   border-bottom: 1px solid #75ddcb;
   padding: 6px 0;
@@ -471,6 +519,16 @@ function selectUser(user: UserProfile) {
 .collaborator-list small {
   color: #715cff;
   font-weight: 700;
+}
+
+.remove-collaborator-button {
+  min-width: 82px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff2d3b;
+  cursor: pointer;
 }
 
 .popup-overlay {

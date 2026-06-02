@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
-import type { ProjectForm } from './types'
+import type { Project, ProjectForm, Task } from './types'
 
 const props = defineProps<{
+  project: Project | null
+  tasks: Task[]
   form: ProjectForm
   initials: string
   loading: boolean
@@ -16,36 +19,134 @@ const emit = defineEmits<{
   submit: []
   cancel: []
 }>()
+
+const progress = computed(() => props.project?.progress_percentage ?? 0)
+const projectTasks = computed(() => props.tasks)
+const completedTasks = computed(() => props.tasks.filter((task) => task.status === 'COMPLETED').length)
+const pendingTasks = computed(() => props.tasks.filter((task) => task.status !== 'COMPLETED' && task.status !== 'CANCELLED').length)
+
+const collaboratorsLabel = computed(() => {
+  const collaborators = props.project?.collaborators || []
+  if (!collaborators.length) return 'Sin colaboradores'
+  return collaborators.map((collaborator) => `${collaborator.username} (${roleLabel(collaborator.role)})`).join(', ')
+})
+
+function projectStatus() {
+  if (progress.value === 100) return 'COMPLETADO'
+  if (progress.value > 0) return 'EN PROGRESO'
+  return 'PENDIENTE'
+}
+
+function roleLabel(role: 'READER' | 'EDITOR' | 'ADMIN') {
+  return {
+    READER: 'Lector',
+    EDITOR: 'Editor',
+    ADMIN: 'Administrador',
+  }[role]
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return 'Sin fecha'
+  return new Intl.DateTimeFormat('es-ES').format(new Date(value))
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return 'Sin fecha'
+  return new Intl.DateTimeFormat('es-ES').format(new Date(`${value}T00:00:00`))
+}
 </script>
 
 <template>
-  <section class="project-form-frame">
+  <section class="project-edit-frame">
     <MenuLateral active="proyecto" @navigate="emit('navigate', $event)" />
 
-    <section class="project-form-content">
+    <section class="project-edit-content">
       <button class="avatar-button" type="button" title="Ver perfil" @click="emit('open-profile')">
         <span>{{ props.initials }}</span>
       </button>
 
-      <h1>{{ props.mode === 'create' ? 'Crear proyecto' : 'Editar proyecto' }}</h1>
-      <h2>{{ props.mode === 'create' ? 'Nuevo proyecto' : props.form.name || 'Proyecto' }}</h2>
-
-      <form class="project-form" @submit.prevent="emit('submit')">
-        <div class="left-fields">
-          <label for="projectName">Título</label>
-          <input id="projectName" v-model.trim="props.form.name" required maxlength="80" placeholder="Nombre del proyecto" />
-
-          <label for="projectDescription">Descripción</label>
-          <textarea id="projectDescription" v-model.trim="props.form.description" placeholder="Describe el proyecto..."></textarea>
+      <header class="edit-header">
+        <div>
+          <h1>Editar proyecto</h1>
+          <p>{{ props.project?.name || props.form.name || 'Proyecto seleccionado' }}</p>
         </div>
+      </header>
 
-        <div class="right-fields">
-          <label for="projectStart">Fecha inicio</label>
-          <input id="projectStart" v-model="props.form.start_date" type="date" />
+      <form class="edit-layout" @submit.prevent="emit('submit')">
+        <section class="edit-panel" aria-label="Campos editables del proyecto">
+          <h2>Datos editables</h2>
+          <div class="form-grid">
+            <label class="wide" for="projectName">
+              Nombre
+              <input id="projectName" v-model.trim="props.form.name" required maxlength="80" placeholder="Nombre del proyecto" />
+            </label>
 
-          <label for="projectEnd">Fecha finalización</label>
-          <input id="projectEnd" v-model="props.form.end_date" type="date" />
-        </div>
+            <label class="wide" for="projectDescription">
+              Descripción
+              <textarea id="projectDescription" v-model.trim="props.form.description" placeholder="Describe el proyecto..."></textarea>
+            </label>
+
+            <label for="projectStart">
+              Fecha inicio
+              <input id="projectStart" v-model="props.form.start_date" type="date" />
+            </label>
+
+            <label for="projectEnd">
+              Fecha finalización
+              <input id="projectEnd" v-model="props.form.end_date" type="date" />
+            </label>
+          </div>
+        </section>
+
+        <aside class="detail-panel" aria-label="Información actual del proyecto">
+          <h2>Información del proyecto</h2>
+          <dl>
+            <div>
+              <dt>Propietario</dt>
+              <dd>{{ props.project?.owner?.username || 'Sin usuario' }}</dd>
+            </div>
+            <div>
+              <dt>Estado</dt>
+              <dd>{{ projectStatus() }}</dd>
+            </div>
+            <div>
+              <dt>Progreso</dt>
+              <dd>{{ progress }}%</dd>
+            </div>
+            <div>
+              <dt>Tareas</dt>
+              <dd>{{ projectTasks.length }}</dd>
+            </div>
+            <div>
+              <dt>Completadas</dt>
+              <dd>{{ completedTasks }}</dd>
+            </div>
+            <div>
+              <dt>Pendientes</dt>
+              <dd>{{ pendingTasks }}</dd>
+            </div>
+            <div>
+              <dt>Colaboradores</dt>
+              <dd>{{ collaboratorsLabel }}</dd>
+            </div>
+            <div>
+              <dt>Fecha de creación</dt>
+              <dd>{{ formatDateTime(props.project?.created_at) }}</dd>
+            </div>
+            <div>
+              <dt>Última actualización</dt>
+              <dd>{{ formatDateTime(props.project?.updated_at) }}</dd>
+            </div>
+            <div>
+              <dt>Fecha inicio</dt>
+              <dd>{{ formatDate(props.form.start_date || props.project?.start_date) }}</dd>
+            </div>
+            <div>
+              <dt>Fecha finalización</dt>
+              <dd>{{ formatDate(props.form.end_date || props.project?.end_date) }}</dd>
+            </div>
+          </dl>
+        </aside>
 
         <p v-if="props.message" class="form-message">{{ props.message }}</p>
 
@@ -61,7 +162,7 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.project-form-frame {
+.project-edit-frame {
   min-height: calc(100vh - 8px);
   margin: 3px;
   display: grid;
@@ -72,10 +173,10 @@ const emit = defineEmits<{
   overflow: hidden;
 }
 
-.project-form-content {
+.project-edit-content {
   position: relative;
   min-width: 0;
-  padding: 54px 40px 74px 34px;
+  padding: 62px 40px 74px 34px;
 }
 
 .avatar-button {
@@ -102,33 +203,57 @@ const emit = defineEmits<{
   font-weight: 800;
 }
 
-h1 {
-  margin: 0 0 30px;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+.edit-header {
+  width: calc(100% - 90px);
+}
+
+.edit-header h1 {
+  margin: 0;
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
+}
+
+.edit-header p {
+  margin: 4px 0 0;
+  color: #715cff;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.edit-layout {
+  width: 100%;
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 0.75fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.edit-panel,
+.detail-panel {
+  min-width: 0;
 }
 
 h2 {
   margin: 0 0 14px;
-  font-size: 1.35rem;
+  font-size: 1.28rem;
 }
 
-.project-form {
-  max-width: 660px;
+.form-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.95fr);
-  gap: 28px 112px;
-}
-
-.left-fields,
-.right-fields {
-  display: grid;
-  align-content: start;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
 }
 
 label {
-  font-size: 1.05rem;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  font-size: 1.02rem;
+}
+
+.wide {
+  grid-column: 1 / -1;
 }
 
 input,
@@ -141,20 +266,53 @@ textarea {
 }
 
 input {
-  height: 30px;
-  padding: 0 8px;
+  height: 34px;
+  padding: 0 10px;
 }
 
 textarea {
-  min-height: 132px;
+  min-height: 156px;
   resize: vertical;
-  padding: 8px;
+  padding: 10px;
 }
 
 input::placeholder,
 textarea::placeholder {
   color: #b8bac4;
   font-style: italic;
+}
+
+.detail-panel {
+  border-left: 4px solid #715cff;
+  padding-left: 18px;
+}
+
+.detail-panel dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px 14px;
+  margin: 0;
+}
+
+.detail-panel div {
+  min-width: 0;
+}
+
+.detail-panel dt {
+  margin-bottom: 5px;
+  font-weight: 800;
+}
+
+.detail-panel dd {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  border: 2px solid #7161ff;
+  padding: 4px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .form-message {
@@ -169,7 +327,7 @@ textarea::placeholder {
   grid-template-columns: 170px 220px;
   justify-content: center;
   gap: 30px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .cancel-button,
@@ -196,24 +354,25 @@ textarea::placeholder {
   opacity: 0.7;
 }
 
-@media (max-width: 900px) {
-  .project-form {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .form-actions {
+@media (max-width: 1050px) {
+  .edit-layout,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 860px) {
-  .project-form-frame {
+  .project-edit-frame {
     grid-template-columns: 1fr;
   }
 
-  .project-form-content {
+  .project-edit-content {
     padding: 82px 20px 74px;
+  }
+
+  .form-actions,
+  .detail-panel dl {
+    grid-template-columns: 1fr;
   }
 }
 </style>

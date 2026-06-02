@@ -87,7 +87,7 @@ const emit = defineEmits<{
 .task-form-content {
   position: relative;
   min-width: 0;
-  padding: 54px 40px 74px 34px;
+  padding: 62px 40px 74px 34px;
 }
 
 .avatar-button {
@@ -115,8 +115,8 @@ const emit = defineEmits<{
 }
 
 h1 {
-  margin: 0 0 30px;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  margin: 0 0 8px;
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
 }
 

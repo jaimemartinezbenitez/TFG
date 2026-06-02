@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
-import type { Task } from './types'
+import type { Project, Task } from './types'
 
 const props = defineProps<{
   tasks: Task[]
+  projects: Project[]
   initials: string
   loading: boolean
   message: string
@@ -71,12 +72,28 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat('es-ES').format(new Date(`${value}T00:00:00`))
 }
 
+function projectName(task: Task) {
+  if (!task.project) return 'Sin proyecto'
+  return props.projects.find((project) => project.id === task.project)?.name || 'Sin proyecto'
+}
+
 function collaboratorsLabel(task: Task) {
   const collaborators = task.collaborators || []
   if (!collaborators.length) return ''
   const names = collaborators.map((collaborator) => collaborator.username)
   if (names.length <= 2) return names.join(', ')
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`
+}
+
+function createdByLabel(task: Task) {
+  return task.created_by || task.owner?.username || 'Sin usuario'
+}
+
+function developedByLabel(task: Task) {
+  const developers = task.developed_by?.length ? task.developed_by : []
+  if (!developers.length) return 'Sin usuario'
+  if (developers.length <= 2) return developers.join(', ')
+  return `${developers.slice(0, 2).join(', ')} +${developers.length - 2}`
 }
 </script>
 
@@ -116,7 +133,10 @@ function collaboratorsLabel(task: Task) {
           <strong>Tarea</strong>
           <strong>PRIORIDAD</strong>
           <strong>ESTADO</strong>
+          <strong>Proyecto</strong>
           <strong>Colaborador</strong>
+          <strong>Creada por</strong>
+          <strong>Desarrollada por</strong>
           <strong>Fecha</strong>
           <span></span>
         </div>
@@ -138,9 +158,14 @@ function collaboratorsLabel(task: Task) {
           <strong class="task-status" :class="statusClass(task.status)">
             {{ statusLabel(task.status) }}
           </strong>
+          <span class="project-cell" :class="{ empty: !task.project }">
+            {{ projectName(task) }}
+          </span>
           <span class="collaborator-cell" :class="{ empty: !collaboratorsLabel(task) }">
             {{ collaboratorsLabel(task) || 'Sin colaboradores' }}
           </span>
+          <span class="author-cell">{{ createdByLabel(task) }}</span>
+          <span class="author-cell">{{ developedByLabel(task) }}</span>
           <time>{{ formatDate(task.due_date) }}</time>
           <div class="row-actions">
             <button v-if="task.can_edit" class="icon-button" type="button" title="Editar tarea" @click="emit('edit-task', task)">
@@ -172,7 +197,7 @@ function collaboratorsLabel(task: Task) {
 
 .tasks-content {
   min-width: 0;
-  padding: 54px 24px 74px 52px;
+  padding: 62px 24px 74px 52px;
 }
 
 .tasks-header {
@@ -183,8 +208,8 @@ function collaboratorsLabel(task: Task) {
 }
 
 .tasks-header h1 {
-  margin: 0 0 34px;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  margin: 0 0 8px;
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
 }
 
@@ -279,13 +304,13 @@ function collaboratorsLabel(task: Task) {
 
 .task-table {
   width: 100%;
-  margin-top: 34px;
+  margin-top: 12px;
 }
 
 .task-row {
   min-height: 41px;
   display: grid;
-  grid-template-columns: 34px minmax(220px, 1fr) minmax(120px, 0.25fr) minmax(140px, 0.28fr) minmax(180px, 0.38fr) minmax(120px, 0.24fr) 112px;
+  grid-template-columns: 34px minmax(200px, 1.1fr) minmax(105px, 0.22fr) minmax(125px, 0.26fr) minmax(150px, 0.32fr) minmax(150px, 0.32fr) minmax(115px, 0.26fr) minmax(150px, 0.32fr) minmax(105px, 0.22fr) 112px;
   align-items: center;
   border-bottom: 1px solid #75ddcb;
 }
@@ -332,11 +357,14 @@ function collaboratorsLabel(task: Task) {
 .priority,
 .task-status,
 .collaborator-cell,
+.author-cell,
 .task-row time {
   text-align: center;
 }
 
-.collaborator-cell {
+.project-cell,
+.collaborator-cell,
+.author-cell {
   min-width: 0;
   overflow: hidden;
   color: #715cff;
@@ -344,6 +372,7 @@ function collaboratorsLabel(task: Task) {
   white-space: nowrap;
 }
 
+.project-cell.empty,
 .collaborator-cell.empty {
   color: #9a9daa;
   font-weight: 500;
@@ -412,7 +441,7 @@ function collaboratorsLabel(task: Task) {
   }
 
   .task-row {
-    min-width: 900px;
+    min-width: 1360px;
   }
 }
 </style>

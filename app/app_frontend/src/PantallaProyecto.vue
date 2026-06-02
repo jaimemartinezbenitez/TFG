@@ -29,6 +29,7 @@ const emit = defineEmits<{
   'edit-task': [task: Task]
   'delete-task': [task: Task]
   'share-project': []
+  'remove-collaboration': [collaboration: Collaboration]
 }>()
 
 function progress() {
@@ -102,9 +103,28 @@ function roleDescription(role: Collaboration['role']) {
   }[role]
 }
 
+function collaborationStatusLabel(status: Collaboration['status']) {
+  return {
+    PENDING: 'pendiente de aceptar',
+    ACCEPTED: 'aceptada',
+    REJECTED: 'rechazada',
+  }[status]
+}
+
 function selectUser(user: UserProfile) {
   props.shareForm.userIdentifier = user.email || user.username
   usersPopupOpen.value = false
+}
+
+function createdByLabel(task: Task) {
+  return task.created_by || task.owner?.username || 'Sin usuario'
+}
+
+function developedByLabel(task: Task) {
+  const developers = task.developed_by?.length ? task.developed_by : []
+  if (!developers.length) return 'Sin usuario'
+  if (developers.length <= 2) return developers.join(', ')
+  return `${developers.slice(0, 2).join(', ')} +${developers.length - 2}`
 }
 </script>
 
@@ -199,7 +219,10 @@ function selectUser(user: UserProfile) {
             <ul>
               <li v-for="collaboration in props.collaborations" :key="collaboration.id">
                 <span>{{ collaboration.user_detail?.username || collaboration.user }}</span>
-                <small>{{ roleLabel(collaboration.role) }} · {{ roleDescription(collaboration.role) }}</small>
+                <small>{{ roleLabel(collaboration.role) }} · {{ roleDescription(collaboration.role) }} · {{ collaborationStatusLabel(collaboration.status) }}</small>
+                <button class="remove-collaborator-button" type="button" @click="emit('remove-collaboration', collaboration)">
+                  Eliminar
+                </button>
               </li>
             </ul>
           </div>
@@ -235,6 +258,8 @@ function selectUser(user: UserProfile) {
               <strong>Tarea</strong>
               <strong>PRIORIDAD</strong>
               <strong>ESTADO</strong>
+              <strong>Creada por</strong>
+              <strong>Desarrollada por</strong>
               <strong>Fecha</strong>
               <span></span>
             </div>
@@ -246,6 +271,8 @@ function selectUser(user: UserProfile) {
               </button>
               <strong class="priority" :class="priorityClass(task.priority)">{{ priorityLabel(task.priority) }}</strong>
               <strong class="task-status" :class="statusClass(task.status)">{{ statusLabel(task.status) }}</strong>
+              <span class="author-cell">{{ createdByLabel(task) }}</span>
+              <span class="author-cell">{{ developedByLabel(task) }}</span>
               <time>{{ formatDate(task.due_date) }}</time>
               <div class="row-actions">
                 <button v-if="task.can_edit" class="icon-button" type="button" title="Editar tarea" @click="emit('edit-task', task)">
@@ -280,7 +307,7 @@ function selectUser(user: UserProfile) {
 .project-content {
   position: relative;
   min-width: 0;
-  padding: 72px 24px 74px 34px;
+  padding: 76px 24px 74px 34px;
 }
 
 .avatar-button {
@@ -318,7 +345,7 @@ function selectUser(user: UserProfile) {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
 }
 
@@ -347,7 +374,7 @@ function selectUser(user: UserProfile) {
 
 .access-note {
   width: min(760px, calc(100% - 80px));
-  margin: 12px 0 0;
+  margin: 6px 0 0;
   border-left: 4px solid #715cff;
   padding: 8px 12px;
   color: #33384a;
@@ -357,7 +384,7 @@ function selectUser(user: UserProfile) {
 
 .project-detail-grid {
   width: 100%;
-  margin-top: 18px;
+  margin-top: 8px;
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(480px, 1.35fr);
   gap: 50px;
@@ -427,8 +454,8 @@ function selectUser(user: UserProfile) {
 }
 
 .share-panel {
-  width: min(760px, 100%);
-  margin-top: 28px;
+  width: min(940px, 100%);
+  margin-top: 12px;
 }
 
 .share-panel h2 {
@@ -438,8 +465,9 @@ function selectUser(user: UserProfile) {
 
 .share-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(120px, 150px);
-  gap: 14px;
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 260px) minmax(180px, auto);
+  column-gap: 30px;
+  row-gap: 12px;
   align-items: end;
 }
 
@@ -464,6 +492,10 @@ function selectUser(user: UserProfile) {
   background: #fff;
 }
 
+.share-form select {
+  min-width: 220px;
+}
+
 .user-picker-button,
 .share-form button {
   height: 34px;
@@ -472,6 +504,12 @@ function selectUser(user: UserProfile) {
   color: #fff;
   background: #715cff;
   cursor: pointer;
+}
+
+.share-form button {
+  min-width: 180px;
+  padding: 0 18px;
+  white-space: nowrap;
 }
 
 .user-picker-button {
@@ -508,8 +546,9 @@ function selectUser(user: UserProfile) {
 }
 
 .collaborator-list li {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 16px;
   border-bottom: 1px solid #75ddcb;
   padding: 6px 0;
@@ -518,6 +557,16 @@ function selectUser(user: UserProfile) {
 .collaborator-list small {
   color: #715cff;
   font-weight: 700;
+}
+
+.remove-collaborator-button {
+  min-width: 82px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff2d3b;
+  cursor: pointer;
 }
 
 .popup-overlay {
@@ -563,7 +612,7 @@ function selectUser(user: UserProfile) {
 
 .users-list {
   min-height: 0;
-  margin-top: 16px;
+  margin-top: 10px;
   overflow: auto;
 }
 
@@ -590,7 +639,7 @@ function selectUser(user: UserProfile) {
 
 .project-tasks {
   width: 100%;
-  margin-top: 24px;
+  margin-top: 10px;
 }
 
 .task-table {
@@ -600,7 +649,7 @@ function selectUser(user: UserProfile) {
 .task-row {
   min-height: 41px;
   display: grid;
-  grid-template-columns: 34px minmax(240px, 1fr) minmax(120px, 0.32fr) minmax(150px, 0.36fr) minmax(120px, 0.3fr) 112px;
+  grid-template-columns: 34px minmax(220px, 1.1fr) minmax(110px, 0.28fr) minmax(140px, 0.34fr) minmax(120px, 0.3fr) minmax(160px, 0.38fr) minmax(110px, 0.28fr) 112px;
   align-items: center;
   border-bottom: 1px solid #75ddcb;
 }
@@ -640,8 +689,17 @@ function selectUser(user: UserProfile) {
 
 .priority,
 .task-status,
+.author-cell,
 .task-row time {
   text-align: center;
+}
+
+.author-cell {
+  min-width: 0;
+  overflow: hidden;
+  color: #715cff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-pending {
@@ -723,7 +781,7 @@ function selectUser(user: UserProfile) {
   }
 
   .task-row {
-    min-width: 900px;
+    min-width: 1180px;
   }
 }
 </style>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import BotonVolver from './BotonVolver.vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import Pantalla5217 from './Pantalla5217.vue'
+import Pantalla5217Descanso from './Pantalla5217Descanso.vue'
 import PantallaCalendario from './PantallaCalendario.vue'
 import PantallaCrearProyecto from './PantallaCrearProyecto.vue'
 import PantallaCrearTarea from './PantallaCrearTarea.vue'
@@ -11,13 +13,22 @@ import PantallaEliminarProyecto from './PantallaEliminarProyecto.vue'
 import PantallaEliminarTarea from './PantallaEliminarTarea.vue'
 import PantallaInicio from './PantallaInicio.vue'
 import PantallaIniciarSesion from './PantallaIniciarSesion.vue'
+import PantallaLogros from './PantallaLogros.vue'
 import PantallaMisProyectos from './PantallaMisProyectos.vue'
 import PantallaMisTareas from './PantallaMisTareas.vue'
 import PantallaPerfil from './PantallaPerfil.vue'
+import PantallaPomodoro from './PantallaPomodoro.vue'
+import PantallaPomodoroDescanso from './PantallaPomodoroDescanso.vue'
 import PantallaProyecto from './PantallaProyecto.vue'
 import PantallaRegistro from './PantallaRegistro.vue'
+import PantallaEstadisticas from './PantallaEstadisticas.vue'
+import PantallaResumen5217 from './PantallaResumen5217.vue'
+import PantallaResumenPomodoro from './PantallaResumenPomodoro.vue'
 import PantallaTarea from './PantallaTarea.vue'
+import PantallaTecnicas from './PantallaTecnicas.vue'
+import PantallaTimeBlocking from './PantallaTimeBlocking.vue'
 import type {
+  Achievement,
   ActivityItem,
   AuthMode,
   CalendarData,
@@ -27,11 +38,16 @@ import type {
   DashboardTaskItem,
   EditProfileForm,
   LoginForm,
+  ProductivitySession,
+  ProductivityTechnique,
   Project,
   ProjectForm,
   RegisterForm,
   ShareForm,
+  StatisticsPeriod,
   Task,
+  TechniqueTimerState,
+  TimeBlock,
   TaskForm,
   UserProfile,
 } from './types'
@@ -44,6 +60,16 @@ type AppView =
   | 'profile'
   | 'edit-profile'
   | 'calendar'
+  | 'statistics'
+  | 'achievements'
+  | 'techniques'
+  | 'technique-pomodoro'
+  | 'technique-pomodoro-break'
+  | 'technique-pomodoro-summary'
+  | 'technique-5217'
+  | 'technique-5217-break'
+  | 'technique-5217-summary'
+  | 'technique-time-blocking'
   | 'tasks'
   | 'task-detail'
   | 'task-create'
@@ -57,12 +83,14 @@ type AppView =
 
 const currentView = ref<AppView>('auth')
 const navigationHistory = ref<AppView[]>([])
-const authMode = ref<AuthMode>('register')
+const authMode = ref<AuthMode>('login')
 const loading = ref(false)
 const dashboardLoading = ref(false)
+const achievementLoading = ref(false)
 const calendarLoading = ref(false)
 const authMessage = ref('')
 const dashboardMessage = ref('')
+const achievementMessage = ref('')
 const calendarMessage = ref('')
 const editProfileMessage = ref('')
 const profileSaving = ref(false)
@@ -73,7 +101,13 @@ const projectSaving = ref(false)
 const taskShareMessage = ref('')
 const projectShareMessage = ref('')
 const shareLoading = ref(false)
+const collaborationLoading = ref(false)
+const techniqueLoading = ref(false)
+const techniqueSaving = ref(false)
+const techniqueMessage = ref('')
 const calendarDate = ref(toIsoDate(new Date()))
+const statisticsPeriod = ref<StatisticsPeriod>('week')
+const statisticsDate = ref(toIsoDate(new Date()))
 const selectedTaskId = ref<number | null>(null)
 const selectedProjectId = ref<number | null>(null)
 const accessToken = ref(localStorage.getItem('access') || '')
@@ -110,6 +144,12 @@ const dashboard = ref<DashboardData | null>(null)
 const calendar = ref<CalendarData | null>(null)
 const collaborations = ref<Collaboration[]>([])
 const users = ref<UserProfile[]>([])
+const productivitySessions = ref<ProductivitySession[]>([])
+const achievements = ref<Achievement[]>([])
+const activeProductivitySession = ref<ProductivitySession | null>(null)
+const techniqueTimer = ref<TechniqueTimerState>(emptyTechniqueTimer('POMODORO'))
+const timeBlocks = ref<TimeBlock[]>(defaultTimeBlocks())
+let techniqueInterval: ReturnType<typeof window.setInterval> | null = null
 
 function emptyTaskForm(): TaskForm {
   return {
@@ -137,6 +177,38 @@ function emptyShareForm(): ShareForm {
     role: 'READER',
   }
 }
+
+function emptyTechniqueTimer(technique: ProductivityTechnique): TechniqueTimerState {
+  const isPomodoro = technique === 'POMODORO'
+  const workMinutes = isPomodoro ? 25 : 52
+  const breakMinutes = isPomodoro ? 5 : 17
+  return {
+    technique,
+    phase: 'focus',
+    workMinutes,
+    breakMinutes,
+    targetCycles: 4,
+    currentCycle: 1,
+    completedCycles: 0,
+    remainingSeconds: workMinutes * 60,
+    effectiveSeconds: 0,
+    breakSeconds: 0,
+    isRunning: false,
+  }
+}
+
+function defaultTimeBlocks(): TimeBlock[] {
+  return []
+}
+
+function resetTechniqueState() {
+  clearTechniqueInterval()
+  activeProductivitySession.value = null
+  techniqueTimer.value = emptyTechniqueTimer('POMODORO')
+  timeBlocks.value = defaultTimeBlocks()
+  techniqueMessage.value = ''
+}
+
 
 function resetRegisterForm() {
   registerForm.value = {
@@ -232,6 +304,11 @@ const selectedProjectCollaborations = computed(() =>
     ? collaborations.value.filter((collaboration) => collaboration.project === selectedProject.value?.id)
     : [],
 )
+const pendingCollaborations = computed(() =>
+  collaborations.value.filter(
+    (collaboration) => collaboration.user === profile.value?.id && collaboration.status === 'PENDING',
+  ),
+)
 const canShareSelectedTask = computed(() => Boolean(selectedTask.value?.can_invite_collaborators))
 const canShareSelectedProject = computed(() => Boolean(selectedProject.value?.can_invite_collaborators))
 
@@ -240,17 +317,21 @@ const completedTasks = computed(() => tasks.value.filter((task) => task.status =
 const activeProjects = computed(() => projects.value.length)
 const effectiveMinutes = computed(() => dashboard.value?.metric?.effective_minutes || 0)
 
-const upcomingTasks = computed<DashboardTaskItem[]>(() =>
-  tasks.value
-    .filter((task) => task.status !== 'COMPLETED')
-    .sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))
+const upcomingTasks = computed<DashboardTaskItem[]>(() => {
+  const today = toIsoDate(new Date())
+  return tasks.value
+    .filter((task) => {
+      const dueDate = task.due_date
+      return dueDate !== null && dueDate >= today && ['PENDING', 'IN_PROGRESS'].includes(task.status)
+    })
+    .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     .slice(0, 3)
     .map((task) => ({
       id: task.id,
       title: task.title,
       dateLabel: formatDate(task.due_date),
-    })),
-)
+    }))
+})
 
 const recentActivity = computed<ActivityItem[]>(() =>
   [...tasks.value]
@@ -270,6 +351,10 @@ const showBackButton = computed(() =>
   canGoBack.value &&
   [
     'profile',
+    'calendar',
+    'techniques',
+    'statistics',
+    'achievements',
     'tasks',
     'task-detail',
     'task-create',
@@ -319,12 +404,30 @@ function extractError(payload: unknown): string {
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers)
+  headers.set('Accept', 'application/json')
   if (!headers.has('Content-Type') && options.body) headers.set('Content-Type', 'application/json')
   if (accessToken.value) headers.set('Authorization', `Bearer ${accessToken.value}`)
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
   const text = await response.text()
-  const payload = text ? JSON.parse(text) : null
+  const contentType = response.headers.get('content-type') || ''
+
+  if (text && !contentType.includes('application/json')) {
+    throw new Error(
+      response.ok
+        ? 'La API no devolvio JSON. Revisa que el backend de Django este arrancado.'
+        : `La API devolvio una pagina HTML (${response.status}). Revisa la consola del backend de Django.`,
+    )
+  }
+
+  let payload: unknown = null
+  if (text) {
+    try {
+      payload = JSON.parse(text)
+    } catch {
+      throw new Error('La API devolvio una respuesta no valida.')
+    }
+  }
 
   if (!response.ok) {
     throw new Error(extractError(payload))
@@ -390,13 +493,24 @@ async function loadDashboard() {
   dashboardLoading.value = true
   dashboardMessage.value = ''
   try {
-    const [profileData, taskData, projectData, dashboardData, collaborationData, userData] = await Promise.all([
+    const [
+      profileData,
+      taskData,
+      projectData,
+      dashboardData,
+      collaborationData,
+      userData,
+      productivitySessionData,
+      achievementData,
+    ] = await Promise.all([
       apiRequest<UserProfile>('/auth/profile/'),
       apiRequest<Task[]>('/tasks/'),
       apiRequest<Project[]>('/projects/'),
-      apiRequest<DashboardData>('/statistics/dashboard/'),
+      apiRequest<DashboardData>(`/statistics/dashboard/?view=${statisticsPeriod.value}&date=${statisticsDate.value}`),
       apiRequest<Collaboration[]>('/collaborations/'),
       apiRequest<UserProfile[]>('/users/'),
+      apiRequest<ProductivitySession[]>('/productivity-sessions/'),
+      apiRequest<Achievement[]>('/achievements/'),
     ])
     profile.value = profileData
     tasks.value = taskData
@@ -404,6 +518,8 @@ async function loadDashboard() {
     dashboard.value = dashboardData
     collaborations.value = collaborationData
     users.value = userData
+    productivitySessions.value = productivitySessionData
+    achievements.value = achievementData
   } catch (error) {
     dashboardMessage.value = error instanceof Error ? error.message : 'No se pudo cargar el inicio.'
     clearTokens()
@@ -424,6 +540,9 @@ function handleNavigation(section: string) {
   if (section === 'tareas') openTasks()
   if (section === 'proyecto') openProjects()
   if (section === 'calendario') openCalendar()
+  if (section === 'tecnicas') openTechniques()
+  if (section === 'estadisticas') openStatistics()
+  if (section === 'logros') openAchievements()
 }
 
 function openProfile() {
@@ -489,6 +608,37 @@ function openCalendar() {
   void loadCalendar()
 }
 
+function openStatistics() {
+  dashboardMessage.value = ''
+  setCurrentView('statistics')
+  void loadDashboard()
+}
+
+async function loadAchievements() {
+  if (!accessToken.value) return
+  achievementLoading.value = true
+  achievementMessage.value = ''
+  try {
+    achievements.value = await apiRequest<Achievement[]>('/achievements/')
+  } catch (error) {
+    achievementMessage.value = error instanceof Error ? error.message : 'No se pudieron cargar los logros.'
+  } finally {
+    achievementLoading.value = false
+  }
+}
+
+function openAchievements() {
+  achievementMessage.value = ''
+  setCurrentView('achievements')
+  void loadAchievements()
+}
+
+function changeStatisticsPeriod(period: StatisticsPeriod, date: string) {
+  statisticsPeriod.value = period
+  statisticsDate.value = date || toIsoDate(new Date())
+  void loadDashboard()
+}
+
 function changeCalendarMonth(date: string) {
   void loadCalendar(date)
 }
@@ -510,6 +660,455 @@ async function openCalendarItem(item: CalendarItem) {
     project = projects.value.find((projectItem) => projectItem.id === item.id)
   }
   if (project) openProjectDetail(project)
+}
+
+
+async function loadProductivitySessions() {
+  if (!accessToken.value) return
+  try {
+    productivitySessions.value = await apiRequest<ProductivitySession[]>('/productivity-sessions/')
+  } catch (error) {
+    techniqueMessage.value = error instanceof Error ? error.message : 'No se pudieron cargar las sesiones.'
+  }
+}
+
+function clearTechniqueInterval() {
+  if (techniqueInterval !== null) {
+    window.clearInterval(techniqueInterval)
+    techniqueInterval = null
+  }
+}
+
+function focusViewFor(technique: ProductivityTechnique): AppView {
+  return technique === 'POMODORO' ? 'technique-pomodoro' : 'technique-5217'
+}
+
+function breakViewFor(technique: ProductivityTechnique): AppView {
+  return technique === 'POMODORO' ? 'technique-pomodoro-break' : 'technique-5217-break'
+}
+
+function summaryViewFor(technique: ProductivityTechnique): AppView {
+  return technique === 'POMODORO' ? 'technique-pomodoro-summary' : 'technique-5217-summary'
+}
+
+function timerConfiguration(timer = techniqueTimer.value) {
+  return {
+    work_minutes: timer.workMinutes,
+    break_minutes: timer.breakMinutes,
+    cycles: timer.targetCycles,
+    effective_seconds: timer.effectiveSeconds,
+    break_seconds: timer.breakSeconds,
+  }
+}
+
+function configNumber(
+  configuration: Record<string, unknown>,
+  key: string,
+  fallback: number,
+  allowZero = false,
+) {
+  const value = configuration[key]
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  if (allowZero ? value < 0 : value <= 0) return fallback
+  return value
+}
+
+function timeBlocksFromConfiguration(configuration: Record<string, unknown>) {
+  const blocks = configuration.blocks
+  if (!Array.isArray(blocks)) return defaultTimeBlocks()
+
+  const parsedBlocks = blocks
+    .map((block, index): TimeBlock | null => {
+      if (!block || typeof block !== 'object') return null
+      const item = block as Partial<TimeBlock>
+      if (typeof item.title !== 'string' || typeof item.start !== 'string' || typeof item.end !== 'string') {
+        return null
+      }
+      return {
+        id: typeof item.id === 'number' ? item.id : Date.now() + index,
+        title: item.title,
+        start: item.start,
+        end: item.end,
+        category: typeof item.category === 'string' ? item.category : 'Estudio',
+      }
+    })
+    .filter((block): block is TimeBlock => block !== null)
+
+  return parsedBlocks.sort((a, b) => a.start.localeCompare(b.start))
+}
+
+function timerFromProductivitySession(session: ProductivitySession): TechniqueTimerState {
+  const defaultTimer = emptyTechniqueTimer(session.technique)
+  const configuration = session.configuration || {}
+  const workMinutes = configNumber(configuration, 'work_minutes', defaultTimer.workMinutes)
+  const breakMinutes = configNumber(configuration, 'break_minutes', defaultTimer.breakMinutes)
+  const targetCycles = configNumber(configuration, 'cycles', defaultTimer.targetCycles)
+  const focusDurationSeconds = workMinutes * 60
+  const breakDurationSeconds = breakMinutes * 60
+  const cycleDurationSeconds = focusDurationSeconds + breakDurationSeconds
+  const elapsedSeconds = Math.max(
+    Math.floor((Date.now() - new Date(session.start_at).getTime()) / 1000),
+    0,
+  )
+  const maxSessionSeconds = cycleDurationSeconds * targetCycles
+
+  if (elapsedSeconds >= maxSessionSeconds) {
+    return {
+      ...defaultTimer,
+      phase: 'summary',
+      workMinutes,
+      breakMinutes,
+      targetCycles,
+      currentCycle: targetCycles,
+      completedCycles: targetCycles,
+      remainingSeconds: 0,
+      effectiveSeconds: targetCycles * focusDurationSeconds,
+      breakSeconds: targetCycles * breakDurationSeconds,
+      isRunning: false,
+    }
+  }
+
+  const completedFullCycles = Math.floor(elapsedSeconds / cycleDurationSeconds)
+  const secondsInsideCycle = elapsedSeconds % cycleDurationSeconds
+
+  if (secondsInsideCycle < focusDurationSeconds) {
+    return {
+      ...defaultTimer,
+      phase: 'focus',
+      workMinutes,
+      breakMinutes,
+      targetCycles,
+      currentCycle: completedFullCycles + 1,
+      completedCycles: completedFullCycles,
+      remainingSeconds: focusDurationSeconds - secondsInsideCycle,
+      effectiveSeconds: completedFullCycles * focusDurationSeconds + secondsInsideCycle,
+      breakSeconds: completedFullCycles * breakDurationSeconds,
+      isRunning: true,
+    }
+  }
+
+  const breakElapsedSeconds = secondsInsideCycle - focusDurationSeconds
+  return {
+    ...defaultTimer,
+    phase: 'break',
+    workMinutes,
+    breakMinutes,
+    targetCycles,
+    currentCycle: completedFullCycles + 1,
+    completedCycles: completedFullCycles + 1,
+    remainingSeconds: breakDurationSeconds - breakElapsedSeconds,
+    effectiveSeconds: (completedFullCycles + 1) * focusDurationSeconds,
+    breakSeconds: completedFullCycles * breakDurationSeconds + breakElapsedSeconds,
+    isRunning: true,
+  }
+}
+
+async function createProductivitySession(technique: ProductivityTechnique, configuration: Record<string, unknown>) {
+  return apiRequest<ProductivitySession>('/productivity-sessions/', {
+    method: 'POST',
+    body: JSON.stringify({
+      technique,
+      status: 'IN_PROGRESS',
+      configuration,
+    }),
+  })
+}
+
+function startTechniqueInterval() {
+  clearTechniqueInterval()
+  techniqueInterval = window.setInterval(tickTechniqueTimer, 1000)
+}
+
+function tickTechniqueTimer() {
+  const timer = techniqueTimer.value
+  if (!timer.isRunning) return
+
+  const isFocus = timer.phase === 'focus'
+  if (timer.remainingSeconds <= 1) {
+    techniqueTimer.value = {
+      ...timer,
+      remainingSeconds: 0,
+      effectiveSeconds: timer.effectiveSeconds + (isFocus ? 1 : 0),
+      breakSeconds: timer.breakSeconds + (isFocus ? 0 : 1),
+    }
+    completeTechniquePhase()
+    return
+  }
+
+  techniqueTimer.value = {
+    ...timer,
+    remainingSeconds: timer.remainingSeconds - 1,
+    effectiveSeconds: timer.effectiveSeconds + (isFocus ? 1 : 0),
+    breakSeconds: timer.breakSeconds + (isFocus ? 0 : 1),
+  }
+}
+
+function completeTechniquePhase() {
+  const timer = techniqueTimer.value
+  if (timer.phase === 'focus') {
+    const completedCycles = Math.min(timer.completedCycles + 1, timer.targetCycles)
+    techniqueTimer.value = {
+      ...timer,
+      phase: 'break',
+      completedCycles,
+      remainingSeconds: timer.breakMinutes * 60,
+      isRunning: true,
+    }
+    setCurrentView(breakViewFor(timer.technique), { remember: false })
+    return
+  }
+
+  if (timer.completedCycles >= timer.targetCycles) {
+    showTechniqueSummary()
+    return
+  }
+
+  techniqueTimer.value = {
+    ...timer,
+    phase: 'focus',
+    currentCycle: timer.completedCycles + 1,
+    remainingSeconds: timer.workMinutes * 60,
+    isRunning: true,
+  }
+  setCurrentView(focusViewFor(timer.technique), { remember: false })
+}
+
+function pauseTechniqueTimer() {
+  techniqueTimer.value = { ...techniqueTimer.value, isRunning: false }
+}
+
+function resumeTechniqueTimer() {
+  techniqueTimer.value = { ...techniqueTimer.value, isRunning: true }
+  startTechniqueInterval()
+}
+
+function showTechniqueSummary() {
+  clearTechniqueInterval()
+  techniqueTimer.value = { ...techniqueTimer.value, phase: 'summary', isRunning: false }
+  setCurrentView(summaryViewFor(techniqueTimer.value.technique), { remember: false })
+}
+
+async function finishTechniqueSession(statusValue: 'COMPLETED' | 'INTERRUPTED', navigateAfter = true) {
+  const session = activeProductivitySession.value
+  if (!session) {
+    if (navigateAfter) openTechniques()
+    return
+  }
+
+  techniqueSaving.value = true
+  try {
+    const timer = techniqueTimer.value
+    const totalSeconds = timer.effectiveSeconds + timer.breakSeconds
+    const updated = await apiRequest<ProductivitySession>(`/productivity-sessions/${session.id}/finish/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        status: statusValue,
+        total_duration: Math.ceil(totalSeconds / 60),
+        effective_time: Math.ceil(timer.effectiveSeconds / 60),
+        completed_cycles: timer.completedCycles,
+        configuration: timerConfiguration(timer),
+      }),
+    })
+    productivitySessions.value = [
+      updated,
+      ...productivitySessions.value.filter((item) => item.id !== updated.id),
+    ]
+    activeProductivitySession.value = null
+    await loadDashboard()
+    if (navigateAfter) openTechniques()
+  } catch (error) {
+    techniqueMessage.value = error instanceof Error ? error.message : 'No se pudo guardar la sesión.'
+  } finally {
+    techniqueSaving.value = false
+  }
+}
+
+function cancelTechniqueSession() {
+  clearTechniqueInterval()
+  void finishTechniqueSession('INTERRUPTED')
+}
+
+function finishTechniqueStudy() {
+  void finishTechniqueSession('COMPLETED')
+}
+
+async function restartTechniqueStudy() {
+  const technique = techniqueTimer.value.technique
+  await finishTechniqueSession('COMPLETED', false)
+  await startTechnique(technique)
+}
+
+function openTechniques() {
+  resetTechniqueState()
+  setCurrentView('techniques')
+  void loadProductivitySessions()
+}
+
+async function startTechnique(technique: ProductivityTechnique) {
+  techniqueMessage.value = ''
+  if (technique === 'TIME_BLOCKING') {
+    await startTimeBlocking()
+    return
+  }
+
+  const timer = emptyTechniqueTimer(technique)
+  techniqueTimer.value = timer
+  techniqueLoading.value = true
+  try {
+    activeProductivitySession.value = await createProductivitySession(technique, timerConfiguration(timer))
+    techniqueTimer.value = { ...timer, isRunning: true }
+    setCurrentView(focusViewFor(technique))
+    startTechniqueInterval()
+  } catch (error) {
+    techniqueMessage.value = error instanceof Error ? error.message : 'No se pudo iniciar la técnica.'
+  } finally {
+    techniqueLoading.value = false
+  }
+}
+
+function resumeProductivitySession(session: ProductivitySession) {
+  if (session.status !== 'IN_PROGRESS') return
+  clearTechniqueInterval()
+  techniqueMessage.value = ''
+  activeProductivitySession.value = session
+
+  if (session.technique === 'TIME_BLOCKING') {
+    timeBlocks.value = timeBlocksFromConfiguration(session.configuration || {})
+    setCurrentView('technique-time-blocking')
+    return
+  }
+
+  const timer = timerFromProductivitySession(session)
+  techniqueTimer.value = timer
+
+  if (timer.phase === 'summary') {
+    setCurrentView(summaryViewFor(timer.technique))
+    return
+  }
+
+  setCurrentView(timer.phase === 'break' ? breakViewFor(timer.technique) : focusViewFor(timer.technique))
+  if (timer.isRunning) startTechniqueInterval()
+}
+
+function parseTimeToMinutes(value: string) {
+  const [hourValue = '0', minuteValue = '0'] = value.split(':')
+  const hour = Number(hourValue)
+  const minute = Number(minuteValue)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0
+  return hour * 60 + minute
+}
+
+function minutesBetween(start: string, end: string) {
+  return Math.max(parseTimeToMinutes(end) - parseTimeToMinutes(start), 0)
+}
+
+function addMinutesToTime(value: string, minutes: number) {
+  const total = parseTimeToMinutes(value) + minutes
+  const nextHour = Math.floor(total / 60) % 24
+  const nextMinute = total % 60
+  return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`
+}
+
+async function startTimeBlocking() {
+  techniqueLoading.value = true
+  techniqueMessage.value = ''
+  timeBlocks.value = defaultTimeBlocks()
+  try {
+    activeProductivitySession.value = await createProductivitySession('TIME_BLOCKING', {
+      block_minutes: 60,
+      blocks: timeBlocks.value,
+    })
+    setCurrentView('technique-time-blocking')
+  } catch (error) {
+    techniqueMessage.value = error instanceof Error ? error.message : 'No se pudo iniciar time blocking.'
+  } finally {
+    techniqueLoading.value = false
+  }
+}
+
+async function saveTimeBlockingDraft() {
+  const session = activeProductivitySession.value
+  if (!session || session.technique !== 'TIME_BLOCKING' || session.status !== 'IN_PROGRESS') return
+
+  try {
+    const updated = await apiRequest<ProductivitySession>(`/productivity-sessions/${session.id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        configuration: {
+          block_minutes: 60,
+          blocks: timeBlocks.value,
+        },
+      }),
+    })
+    activeProductivitySession.value = updated
+    productivitySessions.value = [
+      updated,
+      ...productivitySessions.value.filter((item) => item.id !== updated.id),
+    ]
+  } catch (error) {
+    techniqueMessage.value = error instanceof Error ? error.message : 'No se pudo guardar el bloque.'
+  }
+}
+
+function addTimeBlock(block: Omit<TimeBlock, 'id'>) {
+  timeBlocks.value = [
+    ...timeBlocks.value,
+    {
+      ...block,
+      id: Date.now(),
+    },
+  ].sort((a, b) => a.start.localeCompare(b.start))
+  void saveTimeBlockingDraft()
+}
+
+function removeTimeBlock(blockId: number) {
+  timeBlocks.value = timeBlocks.value.filter((block) => block.id !== blockId)
+  void saveTimeBlockingDraft()
+}
+
+async function finishTimeBlocking() {
+  const session = activeProductivitySession.value
+  if (!session) {
+    openTechniques()
+    return
+  }
+
+  if (!timeBlocks.value.length) {
+    techniqueMessage.value = 'Añade al menos un bloque antes de finalizar el estudio.'
+    return
+  }
+
+  const effectiveMinutes = timeBlocks.value.reduce(
+    (total, block) => total + minutesBetween(block.start, block.end),
+    0,
+  )
+  techniqueSaving.value = true
+  try {
+    const updated = await apiRequest<ProductivitySession>(`/productivity-sessions/${session.id}/finish/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'COMPLETED',
+        total_duration: effectiveMinutes,
+        effective_time: effectiveMinutes,
+        completed_cycles: timeBlocks.value.length,
+        configuration: {
+          block_minutes: 60,
+          blocks: timeBlocks.value,
+        },
+      }),
+    })
+    productivitySessions.value = [
+      updated,
+      ...productivitySessions.value.filter((item) => item.id !== updated.id),
+    ]
+    activeProductivitySession.value = null
+    await loadDashboard()
+    openTechniques()
+  } catch (error) {
+    techniqueMessage.value = error instanceof Error ? error.message : 'No se pudo guardar time blocking.'
+  } finally {
+    techniqueSaving.value = false
+  }
 }
 
 function openTasks(remember = true) {
@@ -741,6 +1340,16 @@ async function confirmDeleteProject() {
   }
 }
 
+function userIdForIdentifier(identifier: string) {
+  const normalizedIdentifier = identifier.trim().toLowerCase()
+  const user = users.value.find(
+    (item) =>
+      item.username.toLowerCase() === normalizedIdentifier ||
+      item.email.toLowerCase() === normalizedIdentifier,
+  )
+  return user?.id
+}
+
 async function shareTask() {
   taskShareMessage.value = ''
   const task = selectedTask.value
@@ -755,6 +1364,7 @@ async function shareTask() {
     const collaboration = await apiRequest<Collaboration>('/collaborations/', {
       method: 'POST',
       body: JSON.stringify({
+        user: userIdForIdentifier(userIdentifier),
         user_identifier: userIdentifier,
         resource_type: 'TASK',
         task: task.id,
@@ -774,6 +1384,60 @@ async function shareTask() {
   }
 }
 
+async function respondToCollaboration(collaboration: Collaboration, action: 'accept' | 'reject') {
+  collaborationLoading.value = true
+  dashboardMessage.value = ''
+  try {
+    const updated = await apiRequest<Collaboration>(`/collaborations/${collaboration.id}/${action}/`, {
+      method: 'POST',
+    })
+    collaborations.value = collaborations.value.map((item) => (item.id === updated.id ? updated : item))
+    await loadDashboard()
+  } catch (error) {
+    dashboardMessage.value = error instanceof Error ? error.message : 'No se pudo responder a la invitacion.'
+  } finally {
+    collaborationLoading.value = false
+  }
+}
+
+function acceptCollaboration(collaboration: Collaboration) {
+  void respondToCollaboration(collaboration, 'accept')
+}
+
+function rejectCollaboration(collaboration: Collaboration) {
+  void respondToCollaboration(collaboration, 'reject')
+}
+
+async function removeCollaboration(collaboration: Collaboration) {
+  const isProjectCollaboration = collaboration.resource_type === 'PROJECT'
+  if (isProjectCollaboration) {
+    projectShareMessage.value = ''
+  } else {
+    taskShareMessage.value = ''
+  }
+
+  shareLoading.value = true
+  try {
+    await apiRequest<null>(`/collaborations/${collaboration.id}/`, { method: 'DELETE' })
+    collaborations.value = collaborations.value.filter((item) => item.id !== collaboration.id)
+    if (isProjectCollaboration) {
+      projectShareMessage.value = 'Colaborador eliminado correctamente.'
+    } else {
+      taskShareMessage.value = 'Colaborador eliminado correctamente.'
+    }
+    await loadDashboard()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo eliminar el colaborador.'
+    if (isProjectCollaboration) {
+      projectShareMessage.value = message
+    } else {
+      taskShareMessage.value = message
+    }
+  } finally {
+    shareLoading.value = false
+  }
+}
+
 async function shareProject() {
   projectShareMessage.value = ''
   const project = selectedProject.value
@@ -788,6 +1452,7 @@ async function shareProject() {
     const collaboration = await apiRequest<Collaboration>('/collaborations/', {
       method: 'POST',
       body: JSON.stringify({
+        user: userIdForIdentifier(userIdentifier),
         user_identifier: userIdentifier,
         resource_type: 'PROJECT',
         project: project.id,
@@ -861,8 +1526,10 @@ function clearSessionState() {
   projects.value = []
   dashboard.value = null
   calendar.value = null
+  achievements.value = []
   collaborations.value = []
   users.value = []
+  productivitySessions.value = []
   selectedTaskId.value = null
   selectedProjectId.value = null
   resetEditProfileForm()
@@ -881,6 +1548,8 @@ function clearSessionState() {
   taskShareMessage.value = ''
   projectShareMessage.value = ''
   calendarMessage.value = ''
+  achievementMessage.value = ''
+  resetTechniqueState()
 }
 
 async function logout() {
@@ -963,6 +1632,10 @@ function statusClass(status: Task['status']) {
   return classes[status]
 }
 
+onBeforeUnmount(() => {
+  clearTechniqueInterval()
+})
+
 onMounted(() => {
   if (accessToken.value) {
     setCurrentView('dashboard', { clearHistory: true })
@@ -1003,15 +1676,22 @@ onMounted(() => {
       :effective-minutes="effectiveMinutes"
       :upcoming-tasks="upcomingTasks"
       :recent-activity="recentActivity"
+      :productivity-sessions="productivitySessions"
+      :achievements="achievements"
       :dashboard-loading="dashboardLoading"
       :dashboard-message="dashboardMessage"
+      :pending-collaborations="pendingCollaborations"
+      :collaboration-loading="collaborationLoading"
       @open-profile="openProfile"
       @navigate="handleNavigation"
+      @accept-collaboration="acceptCollaboration"
+      @reject-collaboration="rejectCollaboration"
     />
 
     <PantallaCalendario
       v-else-if="currentView === 'calendar'"
       :calendar="calendar"
+      :tasks="tasks"
       :selected-date="calendarDate"
       :initials="initials"
       :loading="calendarLoading"
@@ -1022,9 +1702,129 @@ onMounted(() => {
       @open-item="openCalendarItem"
     />
 
+    <PantallaEstadisticas
+      v-else-if="currentView === 'statistics'"
+      :initials="initials"
+      :tasks="tasks"
+      :projects="projects"
+      :sessions="productivitySessions"
+      :dashboard="dashboard"
+      :period="statisticsPeriod"
+      :selected-date="statisticsDate"
+      :loading="dashboardLoading"
+      :message="dashboardMessage"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @change-period="changeStatisticsPeriod"
+    />
+
+    <PantallaLogros
+      v-else-if="currentView === 'achievements'"
+      :initials="initials"
+      :achievements="achievements"
+      :loading="achievementLoading"
+      :message="achievementMessage"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+    />
+
+    <PantallaTecnicas
+      v-else-if="currentView === 'techniques'"
+      :initials="initials"
+      :loading="techniqueLoading"
+      :message="techniqueMessage"
+      :sessions="productivitySessions"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @start-technique="startTechnique"
+      @resume-session="resumeProductivitySession"
+    />
+
+    <PantallaPomodoro
+      v-else-if="currentView === 'technique-pomodoro'"
+      :timer="techniqueTimer"
+      :initials="initials"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @pause="pauseTechniqueTimer"
+      @resume="resumeTechniqueTimer"
+      @cancel="cancelTechniqueSession"
+      @finish="showTechniqueSummary"
+    />
+
+    <PantallaPomodoroDescanso
+      v-else-if="currentView === 'technique-pomodoro-break'"
+      :timer="techniqueTimer"
+      :initials="initials"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @pause="pauseTechniqueTimer"
+      @resume="resumeTechniqueTimer"
+      @finish-break="completeTechniquePhase"
+    />
+
+    <PantallaResumenPomodoro
+      v-else-if="currentView === 'technique-pomodoro-summary'"
+      :timer="techniqueTimer"
+      :initials="initials"
+      :saving="techniqueSaving"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @finish="finishTechniqueStudy"
+      @restart="restartTechniqueStudy"
+    />
+
+    <Pantalla5217
+      v-else-if="currentView === 'technique-5217'"
+      :timer="techniqueTimer"
+      :initials="initials"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @pause="pauseTechniqueTimer"
+      @resume="resumeTechniqueTimer"
+      @cancel="cancelTechniqueSession"
+      @finish="showTechniqueSummary"
+    />
+
+    <Pantalla5217Descanso
+      v-else-if="currentView === 'technique-5217-break'"
+      :timer="techniqueTimer"
+      :initials="initials"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @pause="pauseTechniqueTimer"
+      @resume="resumeTechniqueTimer"
+      @finish-break="completeTechniquePhase"
+    />
+
+    <PantallaResumen5217
+      v-else-if="currentView === 'technique-5217-summary'"
+      :timer="techniqueTimer"
+      :initials="initials"
+      :saving="techniqueSaving"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @finish="finishTechniqueStudy"
+      @restart="restartTechniqueStudy"
+    />
+
+    <PantallaTimeBlocking
+      v-else-if="currentView === 'technique-time-blocking'"
+      :blocks="timeBlocks"
+      :initials="initials"
+      :saving="techniqueSaving"
+      :message="techniqueMessage"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @add-block="addTimeBlock"
+      @remove-block="removeTimeBlock"
+      @finish="finishTimeBlocking"
+    />
+
     <PantallaMisTareas
       v-else-if="currentView === 'tasks'"
       :tasks="tasks"
+      :projects="projects"
       :initials="initials"
       :loading="dashboardLoading"
       :message="dashboardMessage"
@@ -1055,6 +1855,7 @@ onMounted(() => {
       @edit-task="openEditTask"
       @delete-task="openDeleteTask"
       @share-task="shareTask"
+      @remove-collaboration="removeCollaboration"
     />
 
     <PantallaCrearTarea
@@ -1072,6 +1873,7 @@ onMounted(() => {
 
     <PantallaEditarTarea
       v-else-if="currentView === 'task-edit'"
+      :task="selectedTask"
       :form="taskForm"
       :projects="projects"
       :initials="initials"
@@ -1087,6 +1889,7 @@ onMounted(() => {
       v-else-if="currentView === 'task-delete'"
       :task="selectedTask"
       :tasks="tasks"
+      :projects="projects"
       :initials="initials"
       :loading="taskSaving"
       :message="taskMessage"
@@ -1132,6 +1935,7 @@ onMounted(() => {
       @edit-task="openEditTask"
       @delete-task="openDeleteTask"
       @share-project="shareProject"
+      @remove-collaboration="removeCollaboration"
     />
 
     <PantallaCrearProyecto
@@ -1149,6 +1953,8 @@ onMounted(() => {
 
     <PantallaEditarProyecto
       v-else-if="currentView === 'project-edit'"
+      :project="selectedProject"
+      :tasks="selectedProjectTasks"
       :form="projectForm"
       :initials="initials"
       :loading="projectSaving"
@@ -1234,11 +2040,33 @@ onMounted(() => {
 .app-shell.has-back-button :global(.tasks-content),
 .app-shell.has-back-button :global(.task-content),
 .app-shell.has-back-button :global(.task-form-content),
+.app-shell.has-back-button :global(.task-edit-content),
 .app-shell.has-back-button :global(.delete-content),
 .app-shell.has-back-button :global(.projects-content),
 .app-shell.has-back-button :global(.project-content),
-.app-shell.has-back-button :global(.project-form-content) {
-  padding-top: 94px;
+.app-shell.has-back-button :global(.project-form-content),
+.app-shell.has-back-button :global(.project-edit-content),
+.app-shell.has-back-button :global(.calendar-content),
+.app-shell.has-back-button :global(.achievements-content),
+.app-shell.has-back-button :global(.techniques-content),
+.app-shell.has-back-button :global(.timer-content),
+.app-shell.has-back-button :global(.break-content),
+.app-shell.has-back-button :global(.summary-content),
+.app-shell.has-back-button :global(.blocking-content) {
+  padding-top: 112px;
+}
+
+.app-shell.has-back-button :global(.tasks-content),
+.app-shell.has-back-button :global(.task-content),
+.app-shell.has-back-button :global(.task-form-content),
+.app-shell.has-back-button :global(.task-edit-content),
+.app-shell.has-back-button :global(.delete-content),
+.app-shell.has-back-button :global(.projects-content),
+.app-shell.has-back-button :global(.project-content),
+.app-shell.has-back-button :global(.project-form-content),
+.app-shell.has-back-button :global(.project-edit-content),
+.app-shell.has-back-button :global(.calendar-content) {
+  padding-top: 136px;
 }
 
 

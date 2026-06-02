@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
-import type { Project, TaskForm } from './types'
+import type { Project, Task, TaskForm } from './types'
 
 const props = defineProps<{
+  task: Task | null
   form: TaskForm
   projects: Project[]
   initials: string
@@ -16,55 +18,162 @@ const emit = defineEmits<{
   submit: []
   cancel: []
 }>()
+
+const selectedProjectName = computed(() => {
+  const projectId = props.form.project ? Number(props.form.project) : props.task?.project
+  if (!projectId) return 'Sin proyecto'
+  return props.projects.find((project) => project.id === projectId)?.name || 'Sin proyecto'
+})
+
+const collaboratorsLabel = computed(() => {
+  const collaborators = props.task?.collaborators || []
+  if (!collaborators.length) return 'Sin colaboradores'
+  return collaborators.map((collaborator) => `${collaborator.username} (${roleLabel(collaborator.role)})`).join(', ')
+})
+
+function priorityLabel(priority: Task['priority']) {
+  return {
+    LOW: 'BAJA',
+    MEDIUM: 'MEDIA',
+    HIGH: 'ALTA',
+  }[priority]
+}
+
+function statusLabel(status: Task['status']) {
+  return {
+    PENDING: 'PENDIENTE',
+    IN_PROGRESS: 'EN PROGRESO',
+    COMPLETED: 'COMPLETADA',
+    CANCELLED: 'CANCELADA',
+  }[status]
+}
+
+function roleLabel(role: 'READER' | 'EDITOR' | 'ADMIN') {
+  return {
+    READER: 'Lector',
+    EDITOR: 'Editor',
+    ADMIN: 'Administrador',
+  }[role]
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return 'Sin fecha'
+  return new Intl.DateTimeFormat('es-ES').format(new Date(value))
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return 'Sin fecha'
+  return new Intl.DateTimeFormat('es-ES').format(new Date(`${value}T00:00:00`))
+}
 </script>
 
 <template>
-  <section class="task-form-frame">
+  <section class="task-edit-frame">
     <MenuLateral active="tareas" @navigate="emit('navigate', $event)" />
 
-    <section class="task-form-content">
+    <section class="task-edit-content">
       <button class="avatar-button" type="button" title="Ver perfil" @click="emit('open-profile')">
         <span>{{ props.initials }}</span>
       </button>
 
-      <h1>Editar tarea</h1>
-
-      <form class="task-form" @submit.prevent="emit('submit')">
-        <div class="left-fields">
-          <label for="taskTitle">Título</label>
-          <input id="taskTitle" v-model.trim="props.form.title" required maxlength="50" placeholder="Nombre de la tarea" />
-
-          <label for="taskDescription">Descripción</label>
-          <textarea id="taskDescription" v-model.trim="props.form.description" placeholder="Describe la tarea..."></textarea>
+      <header class="edit-header">
+        <div>
+          <h1>Editar tarea</h1>
+          <p>{{ props.task?.title || 'Tarea seleccionada' }}</p>
         </div>
+      </header>
 
-        <div class="right-fields">
-          <label for="taskDate">Fecha límite</label>
-          <input id="taskDate" v-model="props.form.due_date" type="date" />
+      <form class="edit-layout" @submit.prevent="emit('submit')">
+        <section class="edit-panel" aria-label="Campos editables de la tarea">
+          <h2>Datos editables</h2>
+          <div class="form-grid">
+            <label class="wide" for="taskTitle">
+              Título
+              <input id="taskTitle" v-model.trim="props.form.title" required maxlength="50" placeholder="Nombre de la tarea" />
+            </label>
 
-          <label for="taskPriority">Prioridad</label>
-          <select id="taskPriority" v-model="props.form.priority">
-            <option value="HIGH">ALTA</option>
-            <option value="MEDIUM">MEDIA</option>
-            <option value="LOW">BAJA</option>
-          </select>
+            <label class="wide" for="taskDescription">
+              Descripción
+              <textarea id="taskDescription" v-model.trim="props.form.description" placeholder="Describe la tarea..."></textarea>
+            </label>
 
-          <label for="taskProject">Proyecto</label>
-          <select id="taskProject" v-model="props.form.project">
-            <option value="">Sin proyecto</option>
-            <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
-              {{ project.name }}
-            </option>
-          </select>
+            <label for="taskPriority">
+              Prioridad
+              <select id="taskPriority" v-model="props.form.priority">
+                <option value="HIGH">ALTA</option>
+                <option value="MEDIUM">MEDIA</option>
+                <option value="LOW">BAJA</option>
+              </select>
+            </label>
 
-          <label for="taskStatus">Estado</label>
-          <select id="taskStatus" v-model="props.form.status">
-            <option value="PENDING">PENDIENTE</option>
-            <option value="IN_PROGRESS">EN PROGRESO</option>
-            <option value="COMPLETED">COMPLETADA</option>
-            <option value="CANCELLED">CANCELADA</option>
-          </select>
-        </div>
+            <label for="taskStatus">
+              Estado
+              <select id="taskStatus" v-model="props.form.status">
+                <option value="PENDING">PENDIENTE</option>
+                <option value="IN_PROGRESS">EN PROGRESO</option>
+                <option value="COMPLETED">COMPLETADA</option>
+                <option value="CANCELLED">CANCELADA</option>
+              </select>
+            </label>
+
+            <label for="taskDate">
+              Fecha límite
+              <input id="taskDate" v-model="props.form.due_date" type="date" />
+            </label>
+
+            <label for="taskProject">
+              Proyecto
+              <select id="taskProject" v-model="props.form.project">
+                <option value="">Sin proyecto</option>
+                <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
+                  {{ project.name }}
+                </option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <aside class="detail-panel" aria-label="Información actual de la tarea">
+          <h2>Información de la tarea</h2>
+          <dl>
+            <div>
+              <dt>Creada por</dt>
+              <dd>{{ props.task?.created_by || props.task?.owner?.username || 'Sin usuario' }}</dd>
+            </div>
+            <div>
+              <dt>Desarrollada por</dt>
+              <dd>{{ props.task?.developed_by?.join(', ') || props.task?.owner?.username || 'Sin usuario' }}</dd>
+            </div>
+            <div>
+              <dt>Proyecto actual</dt>
+              <dd>{{ selectedProjectName }}</dd>
+            </div>
+            <div>
+              <dt>Colaboradores</dt>
+              <dd>{{ collaboratorsLabel }}</dd>
+            </div>
+            <div>
+              <dt>Prioridad actual</dt>
+              <dd>{{ priorityLabel(props.form.priority) }}</dd>
+            </div>
+            <div>
+              <dt>Estado actual</dt>
+              <dd>{{ statusLabel(props.form.status) }}</dd>
+            </div>
+            <div>
+              <dt>Fecha de creación</dt>
+              <dd>{{ formatDateTime(props.task?.created_at) }}</dd>
+            </div>
+            <div>
+              <dt>Última actualización</dt>
+              <dd>{{ formatDateTime(props.task?.updated_at) }}</dd>
+            </div>
+            <div>
+              <dt>Fecha límite</dt>
+              <dd>{{ formatDate(props.form.due_date || props.task?.due_date) }}</dd>
+            </div>
+          </dl>
+        </aside>
 
         <p v-if="props.message" class="form-message">{{ props.message }}</p>
 
@@ -80,7 +189,7 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.task-form-frame {
+.task-edit-frame {
   min-height: calc(100vh - 8px);
   margin: 3px;
   display: grid;
@@ -91,10 +200,10 @@ const emit = defineEmits<{
   overflow: hidden;
 }
 
-.task-form-content {
+.task-edit-content {
   position: relative;
   min-width: 0;
-  padding: 54px 40px 74px 34px;
+  padding: 62px 40px 74px 34px;
 }
 
 .avatar-button {
@@ -121,33 +230,57 @@ const emit = defineEmits<{
   font-weight: 800;
 }
 
-h1 {
-  margin: 0 0 30px;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+.edit-header {
+  width: calc(100% - 90px);
+}
+
+.edit-header h1 {
+  margin: 0;
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
+}
+
+.edit-header p {
+  margin: 4px 0 0;
+  color: #715cff;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.edit-layout {
+  width: 100%;
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 0.75fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.edit-panel,
+.detail-panel {
+  min-width: 0;
 }
 
 h2 {
   margin: 0 0 14px;
-  font-size: 1.35rem;
+  font-size: 1.28rem;
 }
 
-.task-form {
-  max-width: 660px;
+.form-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.95fr);
-  gap: 28px 112px;
-}
-
-.left-fields,
-.right-fields {
-  display: grid;
-  align-content: start;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
 }
 
 label {
-  font-size: 1.05rem;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  font-size: 1.02rem;
+}
+
+.wide {
+  grid-column: 1 / -1;
 }
 
 input,
@@ -162,25 +295,57 @@ select {
 
 input,
 select {
-  height: 30px;
-  padding: 0 8px;
+  height: 34px;
+  padding: 0 10px;
 }
 
 textarea {
-  min-height: 132px;
+  min-height: 156px;
   resize: vertical;
-  padding: 8px;
+  padding: 10px;
 }
 
 input::placeholder,
-textarea::placeholder,
-select:invalid {
+textarea::placeholder {
   color: #b8bac4;
   font-style: italic;
 }
 
 select {
   cursor: pointer;
+}
+
+.detail-panel {
+  border-left: 4px solid #715cff;
+  padding-left: 18px;
+}
+
+.detail-panel dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px 14px;
+  margin: 0;
+}
+
+.detail-panel div {
+  min-width: 0;
+}
+
+.detail-panel dt {
+  margin-bottom: 5px;
+  font-weight: 800;
+}
+
+.detail-panel dd {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  border: 2px solid #7161ff;
+  padding: 4px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .form-message {
@@ -195,7 +360,7 @@ select {
   grid-template-columns: 170px 220px;
   justify-content: center;
   gap: 30px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .cancel-button,
@@ -222,24 +387,25 @@ select {
   opacity: 0.7;
 }
 
-@media (max-width: 900px) {
-  .task-form {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .form-actions {
+@media (max-width: 1050px) {
+  .edit-layout,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 860px) {
-  .task-form-frame {
+  .task-edit-frame {
     grid-template-columns: 1fr;
   }
 
-  .task-form-content {
+  .task-edit-content {
     padding: 82px 20px 74px;
+  }
+
+  .form-actions,
+  .detail-panel dl {
+    grid-template-columns: 1fr;
   }
 }
 </style>

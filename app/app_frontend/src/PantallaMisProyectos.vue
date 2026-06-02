@@ -27,6 +27,16 @@ const orderedProjects = computed(() =>
   }),
 )
 
+const totalProjects = computed(() => props.projects.length)
+const pendingProjects = computed(() => props.projects.filter((project) => progress(project) <= 0).length)
+const inProgressProjects = computed(() =>
+  props.projects.filter((project) => {
+    const value = progress(project)
+    return value > 0 && value < 100
+  }).length,
+)
+const completedProjects = computed(() => props.projects.filter((project) => progress(project) >= 100).length)
+
 function progress(project: Project) {
   return project.progress_percentage ?? 0
 }
@@ -59,6 +69,12 @@ function collaboratorsLabel(project: Project) {
       <header class="projects-header">
         <div>
           <h1>Mis proyectos</h1>
+          <div class="project-stats" aria-label="Resumen de proyectos">
+            <span>Todos <strong class="accent">{{ totalProjects }}</strong></span>
+            <span>Pendientes <strong class="danger">{{ pendingProjects }}</strong></span>
+            <span>En progreso <strong class="warning">{{ inProgressProjects }}</strong></span>
+            <span>Completados <strong class="success">{{ completedProjects }}</strong></span>
+          </div>
         </div>
         <div class="header-actions">
           <button class="avatar-button" type="button" title="Ver perfil" @click="emit('open-profile')">
@@ -124,7 +140,7 @@ function collaboratorsLabel(project: Project) {
 
 .projects-content {
   min-width: 0;
-  padding: 54px 24px 74px 52px;
+  padding: 62px 24px 74px 52px;
 }
 
 .projects-header {
@@ -135,9 +151,22 @@ function collaboratorsLabel(project: Project) {
 }
 
 .projects-header h1 {
-  margin: 0;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  margin: 0 0 8px;
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
+}
+
+.project-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  align-items: center;
+  font-size: 0.88rem;
+}
+
+.project-stats strong {
+  margin-left: 10px;
+  font-size: 1.2rem;
 }
 
 .header-actions {
@@ -196,7 +225,7 @@ function collaboratorsLabel(project: Project) {
 
 .project-table {
   width: 100%;
-  margin-top: 70px;
+  margin-top: 12px;
 }
 
 .project-row {
@@ -252,6 +281,10 @@ function collaboratorsLabel(project: Project) {
 
 .danger {
   color: #ff2d3b;
+}
+
+.warning {
+  color: #ffd43b;
 }
 
 .success {

@@ -79,7 +79,7 @@ function formatDate(value: string | null) {
 .delete-content {
   position: relative;
   min-width: 0;
-  padding: 54px 24px 74px 52px;
+  padding: 62px 24px 74px 52px;
 }
 
 .avatar-button {
@@ -108,7 +108,7 @@ function formatDate(value: string | null) {
 
 h1 {
   margin: 0 0 34px;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
 }
 
@@ -159,7 +159,7 @@ h1 {
 
 .delete-modal h2 {
   margin: 0 0 24px;
-  font-size: clamp(2rem, 3.8vw, 2.35rem);
+  font-size: clamp(2.7rem, 4.8vw, 3.35rem);
 }
 
 .delete-modal p {

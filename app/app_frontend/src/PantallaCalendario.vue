@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
-import type { CalendarData, CalendarItem } from './types'
+import type { CalendarData, CalendarItem, Task } from './types'
 
 const props = defineProps<{
   calendar: CalendarData | null
+  tasks: Task[]
   selectedDate: string
   initials: string
   loading: boolean
@@ -53,6 +54,13 @@ const itemsByDate = computed(() => {
   return map
 })
 
+const upcomingDueTasks = computed(() =>
+  props.tasks
+    .filter((task) => task.due_date && task.status !== 'COMPLETED' && task.status !== 'CANCELLED')
+    .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
+    .slice(0, 5),
+)
+
 const calendarDays = computed(() => {
   const start = new Date(monthStart.value)
   const mondayOffset = (start.getDay() + 6) % 7
@@ -87,6 +95,20 @@ function itemLabel(item: CalendarItem) {
   return item.title
 }
 
+function taskStatusLabel(status: Task['status']) {
+  return {
+    PENDING: 'PENDIENTE',
+    IN_PROGRESS: 'EN PROGRESO',
+    COMPLETED: 'COMPLETADA',
+    CANCELLED: 'CANCELADA',
+  }[status]
+}
+
+function formatDate(value: string | null) {
+  if (!value) return 'Sin fecha'
+  return new Intl.DateTimeFormat('es-ES').format(new Date(`${value}T00:00:00`))
+}
+
 function itemClass(item: CalendarItem) {
   if (item.type !== 'task') return 'project-item'
   return {
@@ -113,6 +135,7 @@ function itemClass(item: CalendarItem) {
       <p v-if="props.message" class="calendar-message">{{ props.message }}</p>
       <p v-else-if="props.loading" class="calendar-message">Cargando calendario...</p>
 
+      <div class="calendar-layout">
       <section class="calendar-board" aria-label="Calendario mensual">
         <header class="month-header">
           <h2>{{ monthLabel }}</h2>
@@ -149,6 +172,23 @@ function itemClass(item: CalendarItem) {
           </article>
         </div>
       </section>
+
+      <aside class="upcoming-panel" aria-label="Tareas que vencen pronto">
+        <h2>Tareas que vencen pronto</h2>
+        <ul>
+          <li v-for="task in upcomingDueTasks" :key="task.id">
+            <button type="button" @click="emit('open-item', { id: task.id, type: 'task', title: task.title, date: task.due_date || '', status: task.status })">
+              <strong>{{ task.title }}</strong>
+              <span>{{ formatDate(task.due_date) }}</span>
+              <small :class="itemClass({ id: task.id, type: 'task', title: task.title, date: task.due_date || '', status: task.status })">
+                {{ taskStatusLabel(task.status) }}
+              </small>
+            </button>
+          </li>
+          <li v-if="!upcomingDueTasks.length" class="empty-upcoming">No hay tareas próximas.</li>
+        </ul>
+      </aside>
+      </div>
     </section>
   </section>
 </template>
@@ -168,7 +208,7 @@ function itemClass(item: CalendarItem) {
 .calendar-content {
   position: relative;
   min-width: 0;
-  padding: 54px 42px 74px;
+  padding: 62px 42px 74px;
 }
 
 .calendar-page-header {
@@ -179,8 +219,8 @@ function itemClass(item: CalendarItem) {
 }
 
 .calendar-page-header h1 {
-  margin: 0 0 16px;
-  font-size: clamp(2rem, 3.8vw, 2.45rem);
+  margin: 0 0 4px;
+  font-size: clamp(2.85rem, 5vw, 3.65rem);
   line-height: 1;
 }
 
@@ -210,15 +250,23 @@ function itemClass(item: CalendarItem) {
   color: #6d7180;
 }
 
+.calendar-layout {
+  margin-top: 0;
+  display: grid;
+  grid-template-columns: minmax(640px, 1fr) minmax(240px, 320px);
+  gap: 28px;
+  align-items: start;
+}
+
 .calendar-board {
-  width: min(100%, 1120px);
-  margin-top: 10px;
+  width: 100%;
+  margin-top: 0;
   border: 2px solid #2f82e8;
   background: #fff;
 }
 
 .month-header {
-  min-height: 68px;
+  min-height: 62px;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -337,7 +385,63 @@ function itemClass(item: CalendarItem) {
   color: #ff2d3b;
 }
 
+.upcoming-panel {
+  border-left: 4px solid #715cff;
+  padding-left: 18px;
+}
+
+.upcoming-panel h2 {
+  margin: 0 0 16px;
+  font-size: 1.15rem;
+}
+
+.upcoming-panel ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming-panel button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  border: 0;
+  border-bottom: 1px solid #75ddcb;
+  padding: 8px 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.upcoming-panel strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upcoming-panel span {
+  color: #6d7180;
+  font-size: 0.85rem;
+}
+
+.upcoming-panel small {
+  grid-column: 1 / -1;
+  font-weight: 800;
+}
+
+.empty-upcoming {
+  color: #6d7180;
+}
+
 @media (max-width: 960px) {
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
   .calendar-board {
     overflow-x: auto;
   }
