@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import BotonVolver from './BotonVolver.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Pantalla5217 from './Pantalla5217.vue'
 import Pantalla5217Descanso from './Pantalla5217Descanso.vue'
 import PantallaCalendario from './PantallaCalendario.vue'
@@ -27,6 +27,7 @@ import PantallaResumenPomodoro from './PantallaResumenPomodoro.vue'
 import PantallaTarea from './PantallaTarea.vue'
 import PantallaTecnicas from './PantallaTecnicas.vue'
 import PantallaTimeBlocking from './PantallaTimeBlocking.vue'
+import { useRoute, useRouter } from 'vue-router'
 import type {
   Achievement,
   ActivityItem,
@@ -53,6 +54,11 @@ import type {
 } from './types'
 
 const API_BASE = '/api'
+
+const route = useRoute()
+const router = useRouter()
+
+type NamedRouteLocation = { name: string; params?: { id?: number | string } }
 
 type AppView =
   | 'auth'
@@ -149,7 +155,137 @@ const achievements = ref<Achievement[]>([])
 const activeProductivitySession = ref<ProductivitySession | null>(null)
 const techniqueTimer = ref<TechniqueTimerState>(emptyTechniqueTimer('POMODORO'))
 const timeBlocks = ref<TimeBlock[]>(defaultTimeBlocks())
+const syncingRouterRoute = ref(false)
 let techniqueInterval: ReturnType<typeof window.setInterval> | null = null
+
+function routeParamId(value: unknown) {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  const id = Number(rawValue)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function routeTargetFromName() {
+  const name = String(route.name || 'login')
+  const taskId = routeParamId(route.params.id)
+  const projectId = routeParamId(route.params.id)
+
+  if (name === 'register') return { view: 'auth' as AppView, authMode: 'register' as AuthMode }
+  if (name === 'login') return { view: 'auth' as AppView, authMode: 'login' as AuthMode }
+  if (name === 'task-detail') return { view: 'task-detail' as AppView, taskId }
+  if (name === 'task-edit') return { view: 'task-edit' as AppView, taskId }
+  if (name === 'task-delete') return { view: 'task-delete' as AppView, taskId }
+  if (name === 'project-detail') return { view: 'project-detail' as AppView, projectId }
+  if (name === 'project-edit') return { view: 'project-edit' as AppView, projectId }
+  if (name === 'project-delete') return { view: 'project-delete' as AppView, projectId }
+  return { view: name as AppView }
+}
+
+function routerLocationForCurrentView(): NamedRouteLocation {
+  if (currentView.value === 'auth') return { name: authMode.value === 'register' ? 'register' : 'login' }
+  if (currentView.value === 'task-detail' && selectedTaskId.value) {
+    return { name: 'task-detail', params: { id: selectedTaskId.value } }
+  }
+  if (currentView.value === 'task-edit' && selectedTaskId.value) {
+    return { name: 'task-edit', params: { id: selectedTaskId.value } }
+  }
+  if (currentView.value === 'task-delete' && selectedTaskId.value) {
+    return { name: 'task-delete', params: { id: selectedTaskId.value } }
+  }
+  if (currentView.value === 'project-detail' && selectedProjectId.value) {
+    return { name: 'project-detail', params: { id: selectedProjectId.value } }
+  }
+  if (currentView.value === 'project-edit' && selectedProjectId.value) {
+    return { name: 'project-edit', params: { id: selectedProjectId.value } }
+  }
+  if (currentView.value === 'project-delete' && selectedProjectId.value) {
+    return { name: 'project-delete', params: { id: selectedProjectId.value } }
+  }
+  return { name: currentView.value }
+}
+
+function sameRouteLocation(location: NamedRouteLocation) {
+  if (route.name !== location.name) return false
+  const expectedId = location.params?.id ? Number(location.params.id) : null
+  const routeId = routeParamId(route.params.id)
+  return expectedId ? expectedId === routeId : routeId === null
+}
+
+async function syncRouterUrl(options: { replace?: boolean } = {}) {
+  if (syncingRouterRoute.value) return
+  const location = routerLocationForCurrentView()
+  if (sameRouteLocation(location)) return
+
+  syncingRouterRoute.value = true
+  try {
+    if (options.replace) {
+      await router.replace(location)
+      return
+    }
+    await router.push(location)
+  } finally {
+    syncingRouterRoute.value = false
+  }
+}
+
+async function loadDataForCurrentRoute() {
+  if (!accessToken.value || currentView.value === 'auth') return
+
+  if (currentView.value === 'achievements') {
+    await loadAchievements()
+    return
+  }
+
+  if (
+    [
+      'techniques',
+      'technique-pomodoro',
+      'technique-pomodoro-break',
+      'technique-pomodoro-summary',
+      'technique-5217',
+      'technique-5217-break',
+      'technique-5217-summary',
+      'technique-time-blocking',
+    ].includes(currentView.value)
+  ) {
+    await loadProductivitySessions()
+  }
+
+  await loadDashboard()
+
+  if (currentView.value === 'calendar') {
+    await loadCalendar()
+  }
+  if (currentView.value === 'task-edit' && selectedTask.value) {
+    resetTaskForm(selectedTask.value)
+  }
+  if (currentView.value === 'project-edit' && selectedProject.value) {
+    resetProjectForm(selectedProject.value)
+  }
+}
+
+async function applyRouteToState() {
+  const target = routeTargetFromName()
+
+  if (accessToken.value && target.view === 'auth') {
+    await router.replace({ name: 'dashboard' })
+    return
+  }
+
+  if (!accessToken.value && target.view !== 'auth') {
+    await router.replace({ name: 'login' })
+    return
+  }
+
+  syncingRouterRoute.value = true
+  navigationHistory.value = []
+  if (target.authMode) authMode.value = target.authMode
+  selectedTaskId.value = target.taskId ?? null
+  selectedProjectId.value = target.projectId ?? null
+  currentView.value = target.view
+  syncingRouterRoute.value = false
+  await loadDataForCurrentRoute()
+}
+
 
 function emptyTaskForm(): TaskForm {
   return {
@@ -377,6 +513,7 @@ function setCurrentView(
   }
 
   currentView.value = view
+  void syncRouterUrl({ replace: options.clearHistory })
 }
 
 function saveTokens(access: string, refresh: string) {
@@ -533,6 +670,7 @@ function switchAuthMode(mode: AuthMode) {
   clearAuthForms()
   authMode.value = mode
   authMessage.value = ''
+  void syncRouterUrl({ replace: true })
 }
 
 function handleNavigation(section: string) {
@@ -1538,8 +1676,8 @@ function clearSessionState() {
   resetTaskShareForm()
   resetProjectShareForm()
   clearAuthForms()
-  setCurrentView('auth', { clearHistory: true })
   authMode.value = 'login'
+  setCurrentView('auth', { clearHistory: true })
   authMessage.value = ''
   dashboardMessage.value = ''
   editProfileMessage.value = ''
@@ -1636,11 +1774,16 @@ onBeforeUnmount(() => {
   clearTechniqueInterval()
 })
 
+watch(
+  () => route.fullPath,
+  () => {
+    if (syncingRouterRoute.value) return
+    void applyRouteToState()
+  },
+)
+
 onMounted(() => {
-  if (accessToken.value) {
-    setCurrentView('dashboard', { clearHistory: true })
-    void loadDashboard()
-  }
+  void applyRouteToState()
 })
 </script>
 

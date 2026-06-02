@@ -1,4 +1,5 @@
 import csv
+from calendar import monthrange
 from datetime import timedelta
 from smtplib import SMTPException
 
@@ -23,6 +24,7 @@ from .models import (
     Metric,
     Notification,
     ProductivitySession,
+    ProductivityTechnique,
     Project,
     SessionStatus,
     Statistic,
@@ -79,19 +81,88 @@ def accessible_tasks(user):
 
 
 def assign_productivity_achievements(user):
-    completed_tasks = Task.objects.filter(owner=user, status=TaskStatus.COMPLETED).count()
-    total_tasks = Task.objects.filter(owner=user).count()
-    completed_sessions = ProductivitySession.objects.filter(user=user, status=SessionStatus.COMPLETED).count()
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    month_start = today.replace(day=1)
+    next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_end = next_month - timedelta(days=1)
+    year_start = today.replace(month=1, day=1)
+    year_end = today.replace(month=12, day=31)
+
+    user_tasks = Task.objects.filter(owner=user)
+    completed_task_queryset = user_tasks.filter(status=TaskStatus.COMPLETED)
+    completed_tasks = completed_task_queryset.count()
+    total_tasks = user_tasks.count()
+    completed_session_queryset = ProductivitySession.objects.filter(user=user, status=SessionStatus.COMPLETED)
+    completed_sessions = completed_session_queryset.count()
+    completed_pomodoros = completed_session_queryset.filter(technique=ProductivityTechnique.POMODORO).count()
     effective_minutes = ProductivitySession.objects.filter(user=user).aggregate(
         total=Sum('effective_time')
     )['total'] or 0
 
+    def completed_tasks_between(start_date, end_date):
+        return completed_task_queryset.filter(updated_at__date__range=(start_date, end_date)).count()
+
+    def effective_minutes_between(start_date, end_date):
+        return completed_session_queryset.filter(start_at__date__range=(start_date, end_date)).aggregate(
+            total=Sum('effective_time')
+        )['total'] or 0
+
+    def active_days_between(start_date, end_date):
+        return completed_session_queryset.filter(
+            start_at__date__range=(start_date, end_date)
+        ).values('start_at__date').distinct().count()
+
+    weekly_completed_tasks = completed_tasks_between(week_start, week_end)
+    weekly_effective_minutes = effective_minutes_between(week_start, week_end)
+    weekly_active_days = active_days_between(week_start, week_end)
+    monthly_completed_tasks = completed_tasks_between(month_start, month_end)
+    monthly_effective_minutes = effective_minutes_between(month_start, month_end)
+    monthly_active_days = active_days_between(month_start, month_end)
+    yearly_completed_tasks = completed_tasks_between(year_start, year_end)
+    yearly_effective_minutes = effective_minutes_between(year_start, year_end)
+    yearly_active_days = active_days_between(year_start, year_end)
+
+    latest_productivity_date = completed_session_queryset.order_by('-start_at').values_list(
+        'start_at__date',
+        flat=True,
+    ).first() or today
+    consecutive_days = consecutive_productivity_days(user, latest_productivity_date)
+    early_completed_tasks = completed_task_queryset.filter(updated_at__hour__lt=8).exists()
+    intense_pomodoro_day = completed_session_queryset.filter(
+        technique=ProductivityTechnique.POMODORO,
+    ).values('start_at__date').annotate(total=Count('id')).filter(total__gte=4).exists()
+
     rules = [
-        (completed_tasks >= 1, 'Primera tarea completada', 'Has completado tu primera tarea.'),
+        (completed_tasks >= 1, 'Primeros pasos', 'Completa tu primera tarea.'),
+        (completed_pomodoros >= 10, 'Enfoque total', 'Completa 10 sesiones Pomodoro.'),
+        (consecutive_days >= 7, 'Constante', '7 dias seguidos activo.'),
+        (completed_tasks >= 50, 'Productivo', 'Completa 50 tareas.'),
+        (early_completed_tasks, 'Madrugador', 'Completa tareas antes de las 8am.'),
+        (intense_pomodoro_day, 'Maratonista', '4 sesiones Pomodoro en un dia.'),
+        (consecutive_days >= 30, 'Imparable', '30 dias seguidos activo.'),
+        (completed_tasks >= 100, 'Experto', 'Completa 100 tareas.'),
         (completed_tasks >= 5, 'Cinco tareas completadas', 'Has completado cinco tareas.'),
         (total_tasks >= 10, 'Planificador constante', 'Has creado diez tareas en la plataforma.'),
         (completed_sessions >= 1, 'Primera sesion productiva', 'Has finalizado una sesion de productividad.'),
         (effective_minutes >= 120, 'Dos horas enfocadas', 'Has registrado al menos dos horas efectivas.'),
+        (weekly_completed_tasks >= 1, 'Semana en marcha', 'Completa una tarea esta semana.'),
+        (weekly_completed_tasks >= 5, 'Sprint semanal', 'Completa 5 tareas esta semana.'),
+        (weekly_effective_minutes >= 180, 'Semana enfocada', 'Acumula 3 horas de enfoque esta semana.'),
+        (weekly_active_days >= 5, 'Ritmo semanal', 'Registra sesiones en 5 dias de la semana.'),
+        (monthly_completed_tasks >= 5, 'Mes activo', 'Completa 5 tareas este mes.'),
+        (monthly_completed_tasks >= 20, 'Mes productivo', 'Completa 20 tareas este mes.'),
+        (monthly_effective_minutes >= 900, 'Mes de enfoque', 'Acumula 15 horas de enfoque este mes.'),
+        (monthly_active_days >= 15, 'Constancia mensual', 'Registra sesiones en 15 dias del mes.'),
+        (yearly_active_days >= 60, 'Ano constante', 'Registra actividad en 60 dias del ano.'),
+        (yearly_completed_tasks >= 150, 'Ano productivo', 'Completa 150 tareas este ano.'),
+        (yearly_effective_minutes >= 6000, 'Ano de enfoque', 'Acumula 100 horas de enfoque este ano.'),
+        (
+            yearly_completed_tasks >= 300 and yearly_effective_minutes >= 12000,
+            'Maestria anual',
+            'Completa 300 tareas y 200 horas de enfoque en el ano.',
+        ),
     ]
     created = []
     for condition, name, description in rules:
@@ -104,7 +175,6 @@ def assign_productivity_achievements(user):
             if was_created:
                 created.append(achievement)
     return created
-
 
 def generate_task_reminders(user):
     today = timezone.localdate()
@@ -175,6 +245,106 @@ def parse_date_range(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
     return start_date, end_date, None
+
+
+
+def period_task_queryset(user, start_date, end_date):
+    return Task.objects.filter(owner=user).filter(
+        Q(created_at__date__range=(start_date, end_date))
+        | Q(updated_at__date__range=(start_date, end_date))
+        | Q(due_date__range=(start_date, end_date))
+    ).distinct()
+
+
+def build_focus_series(sessions, view, start_date, end_date):
+    completed_sessions = sessions.filter(status=SessionStatus.COMPLETED)
+    if view == 'day':
+        buckets = [
+            {
+                'key': f'{hour:02d}',
+                'label': f'{hour:02d}:00-{hour + 4:02d}:00',
+                'short_label': f'{hour:02d}h',
+                'minutes': 0,
+            }
+            for hour in range(0, 24, 4)
+        ]
+        bucket_by_hour = {int(bucket['key']): bucket for bucket in buckets}
+        for session in completed_sessions:
+            local_start = timezone.localtime(session.start_at)
+            bucket_hour = (local_start.hour // 4) * 4
+            bucket_by_hour[bucket_hour]['minutes'] += session.effective_time
+        return buckets
+
+    if view == 'week':
+        weekdays = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo']
+        buckets = []
+        for offset in range(7):
+            current_date = start_date + timedelta(days=offset)
+            buckets.append({
+                'key': current_date.isoformat(),
+                'label': weekdays[offset],
+                'short_label': weekdays[offset][:3],
+                'minutes': 0,
+            })
+    else:
+        buckets = []
+        _, days_in_month = monthrange(start_date.year, start_date.month)
+        for day in range(1, days_in_month + 1):
+            current_date = start_date.replace(day=day)
+            buckets.append({
+                'key': current_date.isoformat(),
+                'label': f'{day}/{current_date.month}',
+                'short_label': str(day),
+                'minutes': 0,
+            })
+
+    bucket_by_date = {bucket['key']: bucket for bucket in buckets}
+    for session in completed_sessions:
+        local_date = timezone.localtime(session.start_at).date().isoformat()
+        if local_date in bucket_by_date:
+            bucket_by_date[local_date]['minutes'] += session.effective_time
+    return buckets
+
+
+def build_technique_distribution(sessions):
+    technique_labels = {
+        ProductivityTechnique.POMODORO: 'Pomodoro',
+        ProductivityTechnique.TIME_BLOCKING: 'Time Blocking',
+        ProductivityTechnique.FIFTY_TWO_SEVENTEEN: '52/17',
+    }
+    totals = {technique: 0 for technique in technique_labels}
+    for row in sessions.filter(status=SessionStatus.COMPLETED).values('technique').annotate(
+        total=Sum('effective_time')
+    ):
+        totals[row['technique']] = row['total'] or 0
+
+    total_minutes = sum(totals.values())
+    distribution = []
+    for technique, label in technique_labels.items():
+        minutes = totals[technique]
+        distribution.append({
+            'technique': technique,
+            'label': label,
+            'minutes': minutes,
+            'percentage': round((minutes / total_minutes * 100) if total_minutes else 0),
+        })
+    return distribution
+
+
+def consecutive_productivity_days(user, until_date):
+    session_dates = set(
+        ProductivitySession.objects.filter(
+            user=user,
+            status=SessionStatus.COMPLETED,
+            start_at__date__lte=until_date,
+        ).values_list('start_at__date', flat=True)
+    )
+    cursor = until_date
+    streak = 0
+    while cursor in session_dates:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
 
 
 def escape_pdf_text(value):
@@ -530,6 +700,10 @@ class AchievementViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AchievementSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        assign_productivity_achievements(request.user)
+        return super().list(request, *args, **kwargs)
+
     def get_queryset(self):
         if not self.request.user.is_authenticated:
             return Achievement.objects.none()
@@ -566,26 +740,62 @@ class StatisticViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
+        view, start_date, end_date, error = parse_period(request)
+        if error:
+            return error
+
         user = request.user
-        tasks = Task.objects.filter(owner=user)
-        projects = Project.objects.filter(owner=user)
-        sessions = ProductivitySession.objects.filter(user=user)
-        metric = Metric.objects.filter(user=user).first() or build_metric_for_user(user)
+        selected_date = parse_date(request.query_params.get('date', '')) or timezone.localdate()
+        all_tasks = Task.objects.filter(owner=user)
+        period_tasks = period_task_queryset(user, start_date, end_date)
+        period_sessions = ProductivitySession.objects.filter(
+            user=user,
+            start_at__date__range=(start_date, end_date),
+        )
+        period_projects = Project.objects.filter(owner=user).filter(
+            Q(created_at__date__lte=end_date) & (Q(end_date__isnull=True) | Q(end_date__gte=start_date))
+        ).distinct()
+
+        tasks_created = all_tasks.filter(created_at__date__range=(start_date, end_date)).count()
+        tasks_completed = all_tasks.filter(
+            status=TaskStatus.COMPLETED,
+            updated_at__date__range=(start_date, end_date),
+        ).count()
+        registered_time = period_sessions.aggregate(total=Sum('total_duration'))['total'] or 0
+        effective_minutes = period_sessions.aggregate(total=Sum('effective_time'))['total'] or 0
+        break_minutes = max(registered_time - effective_minutes, 0)
+        useful_tasks = period_tasks.exclude(status=TaskStatus.CANCELLED).count()
+        if registered_time:
+            progress = effective_minutes / registered_time * 100
+        elif useful_tasks:
+            progress = tasks_completed / useful_tasks * 100
+        else:
+            progress = 0
+
+        metric = Metric.objects.create(
+            user=user,
+            tasks_created=tasks_created,
+            tasks_completed=tasks_completed,
+            registered_time=registered_time,
+            effective_minutes=effective_minutes,
+            progress_percentage=round(progress, 2),
+        )
 
         tasks_by_status = {
             row['status']: row['total']
-            for row in tasks.values('status').annotate(total=Count('id')).order_by('status')
+            for row in period_tasks.values('status').annotate(total=Count('id')).order_by('status')
         }
         tasks_by_priority = {
             row['priority']: row['total']
-            for row in tasks.values('priority').annotate(total=Count('id')).order_by('priority')
+            for row in period_tasks.values('priority').annotate(total=Count('id')).order_by('priority')
         }
+        technique_distribution = build_technique_distribution(period_sessions)
         sessions_by_technique = {
-            row['technique']: row['total']
-            for row in sessions.values('technique').annotate(total=Sum('effective_time')).order_by('technique')
+            item['technique']: item['minutes']
+            for item in technique_distribution
         }
         project_progress = []
-        for project in projects:
+        for project in period_projects:
             project_tasks = project.tasks.filter(owner=user)
             total = project_tasks.count()
             completed = project_tasks.filter(status=TaskStatus.COMPLETED).count()
@@ -598,10 +808,29 @@ class StatisticViewSet(viewsets.ModelViewSet):
             })
 
         visual_data = {
+            'period': {
+                'view': view,
+                'selected_date': selected_date.isoformat(),
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+            },
+            'summary': {
+                'tasks_created': tasks_created,
+                'tasks_completed': tasks_completed,
+                'active_projects': period_projects.count(),
+                'completed_sessions': period_sessions.filter(status=SessionStatus.COMPLETED).count(),
+                'registered_time': registered_time,
+                'effective_minutes': effective_minutes,
+                'break_minutes': break_minutes,
+                'productivity_percentage': round(progress),
+                'consecutive_days': consecutive_productivity_days(user, selected_date),
+            },
             'metric': MetricSerializer(metric).data,
             'tasks_by_status': tasks_by_status,
             'tasks_by_priority': tasks_by_priority,
             'sessions_by_technique': sessions_by_technique,
+            'technique_distribution': technique_distribution,
+            'focus_series': build_focus_series(period_sessions, view, start_date, end_date),
             'project_progress': project_progress,
         }
         Statistic.objects.create(
@@ -611,7 +840,6 @@ class StatisticViewSet(viewsets.ModelViewSet):
             visual_data=visual_data,
         )
         return Response(visual_data)
-
 
 class ExportViewSet(viewsets.ModelViewSet):
     serializer_class = ExportSerializer
