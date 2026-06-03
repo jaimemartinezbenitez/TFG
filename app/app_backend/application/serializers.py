@@ -1,3 +1,8 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "serializers.py"
+# Descripcion: Transforma modelos del backend en datos JSON para la API.
+
 import secrets
 from datetime import timedelta
 

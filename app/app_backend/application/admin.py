@@ -1,3 +1,8 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "admin.py"
+# Descripcion: Registra los modelos para su gestión en el panel de administración.
+
 from django.contrib import admin
 
 from .models import (

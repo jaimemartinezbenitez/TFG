@@ -1,11 +1,13 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "views.py"
+# Descripcion: Implementa vistas y endpoints REST del backend.
+
 import csv
 from calendar import monthrange
 from datetime import timedelta
-from smtplib import SMTPException
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
 from django.utils import timezone
@@ -449,37 +451,13 @@ class PasswordResetRequestView(generics.GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if settings.EMAIL_BACKEND.endswith('smtp.EmailBackend') and not settings.EMAIL_HOST:
-            return Response(
-                {'email': 'El servidor SMTP no esta configurado. Define EMAIL_HOST en las variables de entorno.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
         reset_token = serializer.save()
-        confirm_endpoint = request.build_absolute_uri('/api/auth/password-reset/confirm/')
-        try:
-            send_mail(
-                'Restablecimiento de contrasena',
-                (
-                    'Has solicitado restablecer la contrasena de tu cuenta.\n\n'
-                    f'Token: {reset_token.token}\n'
-                    f'Endpoint de confirmacion: {confirm_endpoint}\n'
-                    f'Caduca: {reset_token.expires_at}\n\n'
-                    'Si no has solicitado este cambio, puedes ignorar este mensaje.'
-                ),
-                settings.DEFAULT_FROM_EMAIL,
-                [serializer.validated_data['email']],
-                fail_silently=False,
-            )
-        except (OSError, SMTPException):
-            reset_token.mark_as_used()
-            return Response(
-                {'email': 'No se pudo enviar el correo de recuperacion. Revisa la configuracion SMTP.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
         return Response(
-            {'detail': 'Se ha enviado un correo con las instrucciones de recuperacion.'},
+            {
+                'detail': 'Token generado. Usalo para restablecer la contrasena.',
+                'token': reset_token.token,
+                'expires_at': reset_token.expires_at,
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -860,6 +838,15 @@ class ExportViewSet(viewsets.ModelViewSet):
         metric = Metric.objects.filter(user=request.user).first() or build_metric_for_user(request.user)
         tasks = Task.objects.filter(owner=request.user)
         sessions = ProductivitySession.objects.filter(user=request.user)
+        project_id = request.query_params.get('project')
+        if project_id:
+            project = Project.objects.filter(owner=request.user, id=project_id).first()
+            if not project:
+                return None, Response(
+                    {'project': 'El proyecto indicado no existe o no pertenece al usuario.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            tasks = tasks.filter(project=project)
         if start_date and end_date:
             tasks = tasks.filter(created_at__date__range=(start_date, end_date))
             sessions = sessions.filter(start_at__date__range=(start_date, end_date))
@@ -896,7 +883,7 @@ class ExportViewSet(viewsets.ModelViewSet):
         writer = csv.writer(response)
         for line in lines:
             writer.writerow([line])
-        Export.objects.create(user=request.user, format='CSV', date_range=request.query_params.get('range', ''))
+        Export.objects.create(user=request.user, format='CSV', date_range=request.query_params.urlencode())
         return response
 
     @action(detail=False, methods=['get'])
@@ -906,7 +893,7 @@ class ExportViewSet(viewsets.ModelViewSet):
             return error
         response = HttpResponse(build_simple_pdf(lines), content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="productividad.pdf"'
-        Export.objects.create(user=request.user, format='PDF', date_range=request.query_params.get('range', ''))
+        Export.objects.create(user=request.user, format='PDF', date_range=request.query_params.urlencode())
         return response
 
 

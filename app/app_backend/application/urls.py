@@ -1,3 +1,8 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "urls.py"
+# Descripcion: Declara las rutas específicas de la API de la aplicación.
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

@@ -1,3 +1,8 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "permissions.py"
+# Descripcion: Centraliza permisos personalizados para recursos colaborativos.
+
 from rest_framework import permissions
 
 from .models import Collaboration, CollaborationStatus

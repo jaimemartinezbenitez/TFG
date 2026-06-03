@@ -1,3 +1,8 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "models.py"
+# Descripcion: Define los modelos de datos de usuarios, tareas, proyectos y productividad.
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone

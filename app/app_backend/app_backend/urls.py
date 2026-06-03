@@ -1,3 +1,8 @@
+# Autor: Jaime Martínez Benítez
+# TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+# Archivo: "urls.py"
+# Descripcion: Declara las rutas generales del backend y conecta las APIs.
+
 """
 URL configuration for app_backend project.
 
