@@ -1,4 +1,9 @@
-export type AuthMode = 'register' | 'login'
+// Autor: Jaime Martínez Benítez
+// TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+// Archivo: "types.ts"
+// Descripcion: Declara tipos compartidos del frontend.
+
+export type AuthMode = 'register' | 'login' | 'password-reset'
 
 export type RegisterForm = {
   username: string
@@ -12,10 +17,21 @@ export type LoginForm = {
   password: string
 }
 
+export type PasswordResetForm = {
+  email: string
+  token: string
+  password: string
+  confirmPassword: string
+}
+
 export type EditProfileForm = {
   username: string
   email: string
   oldPassword: string
+  password: string
+}
+
+export type DeleteAccountForm = {
   password: string
 }
 
@@ -53,6 +69,15 @@ export type Collaboration = {
   assigned_at: string
 }
 
+export type Notification = {
+  id: number
+  task: number | null
+  project: number | null
+  message: string
+  event_date: string
+  read: boolean
+}
+
 export type ShareForm = {
   userIdentifier: string
   role: CollaboratorRole
@@ -88,6 +113,8 @@ export type TaskForm = {
   status: TaskStatus
   due_date: string
   project: string
+  collaboratorIdentifier: string
+  collaboratorRole: CollaboratorRole
 }
 
 export type Project = {
@@ -114,6 +141,16 @@ export type ProjectForm = {
   description: string
   start_date: string
   end_date: string
+  collaboratorIdentifier: string
+  collaboratorRole: CollaboratorRole
+}
+
+export type ExportFormat = 'csv' | 'pdf'
+
+export type ExportForm = {
+  deadline: string
+  project: string
+  format: ExportFormat
 }
 
 export type StatisticsPeriod = 'day' | 'week' | 'month'

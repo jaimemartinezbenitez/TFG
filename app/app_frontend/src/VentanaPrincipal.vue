@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "VentanaPrincipal.vue"
+Descripcion: Coordina el estado, navegación y comunicación con la API.
+-->
+
 <script setup lang="ts">
 import BotonVolver from './BotonVolver.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -11,6 +18,7 @@ import PantallaEditarProyecto from './PantallaEditarProyecto.vue'
 import PantallaEditarTarea from './PantallaEditarTarea.vue'
 import PantallaEliminarProyecto from './PantallaEliminarProyecto.vue'
 import PantallaEliminarTarea from './PantallaEliminarTarea.vue'
+import PantallaExportarDatos from './PantallaExportarDatos.vue'
 import PantallaInicio from './PantallaInicio.vue'
 import PantallaIniciarSesion from './PantallaIniciarSesion.vue'
 import PantallaLogros from './PantallaLogros.vue'
@@ -21,6 +29,7 @@ import PantallaPomodoro from './PantallaPomodoro.vue'
 import PantallaPomodoroDescanso from './PantallaPomodoroDescanso.vue'
 import PantallaProyecto from './PantallaProyecto.vue'
 import PantallaRegistro from './PantallaRegistro.vue'
+import PantallaRecuperarContrasena from './PantallaRecuperarContrasena.vue'
 import PantallaEstadisticas from './PantallaEstadisticas.vue'
 import PantallaResumen5217 from './PantallaResumen5217.vue'
 import PantallaResumenPomodoro from './PantallaResumenPomodoro.vue'
@@ -37,8 +46,12 @@ import type {
   Collaboration,
   DashboardData,
   DashboardTaskItem,
+  DeleteAccountForm,
   EditProfileForm,
+  ExportForm,
   LoginForm,
+  Notification,
+  PasswordResetForm,
   ProductivitySession,
   ProductivityTechnique,
   Project,
@@ -68,6 +81,7 @@ type AppView =
   | 'calendar'
   | 'statistics'
   | 'achievements'
+  | 'export'
   | 'techniques'
   | 'technique-pomodoro'
   | 'technique-pomodoro-break'
@@ -94,12 +108,17 @@ const loading = ref(false)
 const dashboardLoading = ref(false)
 const achievementLoading = ref(false)
 const calendarLoading = ref(false)
+const notificationLoading = ref(false)
 const authMessage = ref('')
 const dashboardMessage = ref('')
 const achievementMessage = ref('')
 const calendarMessage = ref('')
+const exportMessage = ref('')
 const editProfileMessage = ref('')
+const deleteAccountMessage = ref('')
 const profileSaving = ref(false)
+const accountDeleting = ref(false)
+const exportLoading = ref(false)
 const taskMessage = ref('')
 const taskSaving = ref(false)
 const projectMessage = ref('')
@@ -131,6 +150,13 @@ const loginForm = ref<LoginForm>({
   password: '',
 })
 
+const passwordResetForm = ref<PasswordResetForm>({
+  email: '',
+  token: '',
+  password: '',
+  confirmPassword: '',
+})
+
 const editProfileForm = ref<EditProfileForm>({
   username: '',
   email: '',
@@ -138,8 +164,13 @@ const editProfileForm = ref<EditProfileForm>({
   password: '',
 })
 
+const deleteAccountForm = ref<DeleteAccountForm>({
+  password: '',
+})
+
 const taskForm = ref<TaskForm>(emptyTaskForm())
 const projectForm = ref<ProjectForm>(emptyProjectForm())
+const exportForm = ref<ExportForm>(emptyExportForm())
 const taskShareForm = ref<ShareForm>(emptyShareForm())
 const projectShareForm = ref<ShareForm>(emptyShareForm())
 
@@ -149,6 +180,7 @@ const projects = ref<Project[]>([])
 const dashboard = ref<DashboardData | null>(null)
 const calendar = ref<CalendarData | null>(null)
 const collaborations = ref<Collaboration[]>([])
+const notifications = ref<Notification[]>([])
 const users = ref<UserProfile[]>([])
 const productivitySessions = ref<ProductivitySession[]>([])
 const achievements = ref<Achievement[]>([])
@@ -171,6 +203,7 @@ function routeTargetFromName() {
 
   if (name === 'register') return { view: 'auth' as AppView, authMode: 'register' as AuthMode }
   if (name === 'login') return { view: 'auth' as AppView, authMode: 'login' as AuthMode }
+  if (name === 'password-reset') return { view: 'auth' as AppView, authMode: 'password-reset' as AuthMode }
   if (name === 'task-detail') return { view: 'task-detail' as AppView, taskId }
   if (name === 'task-edit') return { view: 'task-edit' as AppView, taskId }
   if (name === 'task-delete') return { view: 'task-delete' as AppView, taskId }
@@ -181,7 +214,11 @@ function routeTargetFromName() {
 }
 
 function routerLocationForCurrentView(): NamedRouteLocation {
-  if (currentView.value === 'auth') return { name: authMode.value === 'register' ? 'register' : 'login' }
+  if (currentView.value === 'auth') {
+    if (authMode.value === 'register') return { name: 'register' }
+    if (authMode.value === 'password-reset') return { name: 'password-reset' }
+    return { name: 'login' }
+  }
   if (currentView.value === 'task-detail' && selectedTaskId.value) {
     return { name: 'task-detail', params: { id: selectedTaskId.value } }
   }
@@ -295,6 +332,8 @@ function emptyTaskForm(): TaskForm {
     status: 'PENDING',
     due_date: '',
     project: '',
+    collaboratorIdentifier: '',
+    collaboratorRole: 'READER',
   }
 }
 
@@ -304,6 +343,16 @@ function emptyProjectForm(): ProjectForm {
     description: '',
     start_date: '',
     end_date: '',
+    collaboratorIdentifier: '',
+    collaboratorRole: 'READER',
+  }
+}
+
+function emptyExportForm(): ExportForm {
+  return {
+    deadline: '',
+    project: '',
+    format: 'csv',
   }
 }
 
@@ -362,9 +411,19 @@ function resetLoginForm() {
   }
 }
 
+function resetPasswordResetForm() {
+  passwordResetForm.value = {
+    email: '',
+    token: '',
+    password: '',
+    confirmPassword: '',
+  }
+}
+
 function clearAuthForms() {
   resetRegisterForm()
   resetLoginForm()
+  resetPasswordResetForm()
 }
 
 function resetEditProfileForm() {
@@ -372,6 +431,12 @@ function resetEditProfileForm() {
     username: '',
     email: '',
     oldPassword: '',
+    password: '',
+  }
+}
+
+function resetDeleteAccountForm() {
+  deleteAccountForm.value = {
     password: '',
   }
 }
@@ -385,6 +450,8 @@ function resetTaskForm(task?: Task) {
         status: task.status,
         due_date: task.due_date || '',
         project: task.project ? String(task.project) : '',
+        collaboratorIdentifier: '',
+        collaboratorRole: 'READER',
       }
     : emptyTaskForm()
 }
@@ -396,6 +463,8 @@ function resetProjectForm(project?: Project) {
         description: project.description,
         start_date: project.start_date || '',
         end_date: project.end_date || '',
+        collaboratorIdentifier: '',
+        collaboratorRole: 'READER',
       }
     : emptyProjectForm()
 }
@@ -406,6 +475,10 @@ function resetTaskShareForm() {
 
 function resetProjectShareForm() {
   projectShareForm.value = emptyShareForm()
+}
+
+function resetExportForm() {
+  exportForm.value = emptyExportForm()
 }
 
 const displayName = computed(() => {
@@ -488,6 +561,7 @@ const showBackButton = computed(() =>
   [
     'profile',
     'calendar',
+    'export',
     'techniques',
     'statistics',
     'achievements',
@@ -625,6 +699,54 @@ async function submitLogin() {
   }
 }
 
+async function submitPasswordResetRequest() {
+  authMessage.value = ''
+  loading.value = true
+  try {
+    const response = await apiRequest<{ detail?: string; token?: string; expires_at?: string }>('/auth/password-reset/', {
+      method: 'POST',
+      body: JSON.stringify({ email: passwordResetForm.value.email }),
+    })
+    if (response.token) {
+      passwordResetForm.value.token = response.token
+      authMessage.value = `${response.detail || 'Token generado para entorno local.'} Token: ${response.token}`
+      return
+    }
+    authMessage.value = response.detail || 'Token de recuperacion generado.'
+  } catch (error) {
+    authMessage.value = error instanceof Error ? error.message : 'No se pudo solicitar la recuperacion.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function submitPasswordResetConfirm() {
+  authMessage.value = ''
+  if (passwordResetForm.value.password !== passwordResetForm.value.confirmPassword) {
+    authMessage.value = 'Las contrasenas no coinciden.'
+    return
+  }
+
+  loading.value = true
+  try {
+    await apiRequest('/auth/password-reset/confirm/', {
+      method: 'POST',
+      body: JSON.stringify({
+        token: passwordResetForm.value.token,
+        password: passwordResetForm.value.password,
+      }),
+    })
+    clearAuthForms()
+    authMode.value = 'login'
+    authMessage.value = 'Contrasena actualizada. Ya puedes iniciar sesion.'
+    void syncRouterUrl({ replace: true })
+  } catch (error) {
+    authMessage.value = error instanceof Error ? error.message : 'No se pudo cambiar la contrasena.'
+  } finally {
+    loading.value = false
+  }
+}
+
 async function loadDashboard() {
   if (!accessToken.value) return
   dashboardLoading.value = true
@@ -636,6 +758,7 @@ async function loadDashboard() {
       projectData,
       dashboardData,
       collaborationData,
+      notificationData,
       userData,
       productivitySessionData,
       achievementData,
@@ -645,6 +768,7 @@ async function loadDashboard() {
       apiRequest<Project[]>('/projects/'),
       apiRequest<DashboardData>(`/statistics/dashboard/?view=${statisticsPeriod.value}&date=${statisticsDate.value}`),
       apiRequest<Collaboration[]>('/collaborations/'),
+      apiRequest<Notification[]>('/notifications/'),
       apiRequest<UserProfile[]>('/users/'),
       apiRequest<ProductivitySession[]>('/productivity-sessions/'),
       apiRequest<Achievement[]>('/achievements/'),
@@ -654,6 +778,7 @@ async function loadDashboard() {
     projects.value = projectData
     dashboard.value = dashboardData
     collaborations.value = collaborationData
+    notifications.value = notificationData
     users.value = userData
     productivitySessions.value = productivitySessionData
     achievements.value = achievementData
@@ -681,9 +806,27 @@ function handleNavigation(section: string) {
   if (section === 'tecnicas') openTechniques()
   if (section === 'estadisticas') openStatistics()
   if (section === 'logros') openAchievements()
+  if (section === 'exportar') openExport()
+}
+
+async function markNotificationRead(notification: Notification) {
+  notificationLoading.value = true
+  dashboardMessage.value = ''
+  try {
+    const updated = await apiRequest<Notification>(`/notifications/${notification.id}/mark_read/`, {
+      method: 'POST',
+    })
+    notifications.value = notifications.value.map((item) => (item.id === updated.id ? updated : item))
+  } catch (error) {
+    dashboardMessage.value = error instanceof Error ? error.message : 'No se pudo actualizar la notificacion.'
+  } finally {
+    notificationLoading.value = false
+  }
 }
 
 function openProfile() {
+  resetDeleteAccountForm()
+  deleteAccountMessage.value = ''
   setCurrentView('profile')
 }
 
@@ -701,6 +844,7 @@ function goBack() {
 
 function openDashboard() {
   resetEditProfileForm()
+  resetDeleteAccountForm()
   resetTaskForm()
   resetProjectForm()
   resetTaskShareForm()
@@ -710,6 +854,7 @@ function openDashboard() {
   taskShareMessage.value = ''
   projectShareMessage.value = ''
   calendarMessage.value = ''
+  deleteAccountMessage.value = ''
   setCurrentView('dashboard', { clearHistory: true })
 }
 
@@ -769,6 +914,253 @@ function openAchievements() {
   achievementMessage.value = ''
   setCurrentView('achievements')
   void loadAchievements()
+}
+
+function openExport() {
+  exportMessage.value = ''
+  setCurrentView('export')
+  void loadDashboard()
+}
+
+function projectTitleForId(projectId: number | null) {
+  if (!projectId) return 'Sin proyecto'
+  return projects.value.find((project) => project.id === projectId)?.name || 'Sin proyecto'
+}
+
+function exportFileBaseName() {
+  const date = toIsoDate(new Date())
+  const project = exportForm.value.project
+    ? projects.value.find((item) => item.id === Number(exportForm.value.project))?.name || 'proyecto'
+    : 'todos'
+  return `concentraplus-${slug(project)}-${date}`
+}
+
+function slug(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'datos'
+}
+
+function filteredTasksForExport() {
+  const deadline = exportForm.value.deadline
+  const projectId = exportForm.value.project ? Number(exportForm.value.project) : null
+
+  return tasks.value.filter((task) => {
+    if (projectId && task.project !== projectId) return false
+    if (deadline && task.due_date && task.due_date > deadline) return false
+    return true
+  })
+}
+
+function filteredProjectsForExport(exportedTasks = filteredTasksForExport()) {
+  const projectId = exportForm.value.project ? Number(exportForm.value.project) : null
+  if (projectId) return projects.value.filter((project) => project.id === projectId)
+
+  const deadline = exportForm.value.deadline
+  const taskProjectIds = new Set(exportedTasks.map((task) => task.project).filter((value): value is number => value !== null))
+  return projects.value.filter((project) => {
+    if (deadline && project.end_date && project.end_date > deadline) return false
+    return !taskProjectIds.size || taskProjectIds.has(project.id) || !deadline
+  })
+}
+
+function escapeCsv(value: unknown) {
+  const text = String(value ?? '')
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+function downloadTextFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function downloadApiFile(path: string, filename: string) {
+  const headers = new Headers()
+  if (accessToken.value) headers.set('Authorization', `Bearer ${accessToken.value}`)
+  const response = await fetch(`${API_BASE}${path}`, { headers })
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const payload = await response.json()
+      throw new Error(extractError(payload))
+    }
+    throw new Error('No se pudo generar el archivo.')
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function exportQueryString() {
+  const params = new URLSearchParams()
+  if (exportForm.value.deadline) {
+    params.set('start', '1970-01-01')
+    params.set('end', exportForm.value.deadline)
+  }
+  if (exportForm.value.project) {
+    params.set('project', exportForm.value.project)
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
+function downloadCsv() {
+  const exportedTasks = filteredTasksForExport()
+  const exportedProjects = filteredProjectsForExport(exportedTasks)
+  const rows = [
+    ['Tipo', 'Proyecto', 'Titulo', 'Descripcion', 'Estado', 'Prioridad', 'Fecha limite', 'Fecha inicio', 'Fecha fin'],
+    ...exportedProjects.map((project) => [
+      'Proyecto',
+      project.name,
+      project.name,
+      project.description,
+      `${project.progress_percentage ?? 0}%`,
+      '',
+      '',
+      project.start_date || '',
+      project.end_date || '',
+    ]),
+    ...exportedTasks.map((task) => [
+      'Tarea',
+      projectTitleForId(task.project),
+      task.title,
+      task.description,
+      statusLabel(task.status),
+      task.priority,
+      task.due_date || '',
+      task.created_at.slice(0, 10),
+      task.updated_at.slice(0, 10),
+    ]),
+  ]
+  const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\n')
+  downloadTextFile(csv, `${exportFileBaseName()}.csv`, 'text/csv;charset=utf-8')
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function printableHtml() {
+  const exportedTasks = filteredTasksForExport()
+  const exportedProjects = filteredProjectsForExport(exportedTasks)
+  const selectedProjectName = exportForm.value.project
+    ? projectTitleForId(Number(exportForm.value.project))
+    : 'Todos los proyectos'
+  const deadline = exportForm.value.deadline || 'Sin fecha limite'
+
+  const projectRows = exportedProjects
+    .map(
+      (project) => `
+        <tr>
+          <td>${escapeHtml(project.name)}</td>
+          <td>${escapeHtml(project.description || 'Sin descripcion')}</td>
+          <td>${escapeHtml(project.start_date || 'Sin fecha')}</td>
+          <td>${escapeHtml(project.end_date || 'Sin fecha')}</td>
+          <td>${escapeHtml(project.progress_percentage ?? 0)}%</td>
+        </tr>`,
+    )
+    .join('')
+  const taskRows = exportedTasks
+    .map(
+      (task) => `
+        <tr>
+          <td>${escapeHtml(task.title)}</td>
+          <td>${escapeHtml(projectTitleForId(task.project))}</td>
+          <td>${escapeHtml(statusLabel(task.status))}</td>
+          <td>${escapeHtml(task.priority)}</td>
+          <td>${escapeHtml(task.due_date || 'Sin fecha')}</td>
+        </tr>`,
+    )
+    .join('')
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Exportar datos</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    h2 { margin-top: 28px; font-size: 20px; }
+    p { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #75ddcb; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f2fffb; }
+    .meta { margin: 18px 0 24px; }
+  </style>
+</head>
+<body>
+  <h1>Exportar datos</h1>
+  <div class="meta">
+    <p><strong>Proyecto:</strong> ${escapeHtml(selectedProjectName)}</p>
+    <p><strong>Fecha limite:</strong> ${escapeHtml(deadline)}</p>
+    <p><strong>Generado:</strong> ${escapeHtml(new Intl.DateTimeFormat('es-ES').format(new Date()))}</p>
+  </div>
+
+  <h2>Proyectos</h2>
+  <table>
+    <thead><tr><th>Proyecto</th><th>Descripcion</th><th>Inicio</th><th>Fin</th><th>Progreso</th></tr></thead>
+    <tbody>${projectRows || '<tr><td colspan="5">No hay proyectos para estos filtros.</td></tr>'}</tbody>
+  </table>
+
+  <h2>Tareas</h2>
+  <table>
+    <thead><tr><th>Tarea</th><th>Proyecto</th><th>Estado</th><th>Prioridad</th><th>Fecha limite</th></tr></thead>
+    <tbody>${taskRows || '<tr><td colspan="5">No hay tareas para estos filtros.</td></tr>'}</tbody>
+  </table>
+</body>
+</html>`
+}
+
+function downloadPdf() {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    exportMessage.value = 'El navegador ha bloqueado la ventana de impresion.'
+    return
+  }
+  printWindow.document.write(printableHtml())
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
+}
+
+async function submitExport() {
+  exportMessage.value = ''
+  exportLoading.value = true
+  try {
+    const format = exportForm.value.format
+    await downloadApiFile(
+      `/exports/${format}/${exportQueryString()}`,
+      `${exportFileBaseName()}.${format}`,
+    )
+    exportMessage.value = 'Archivo generado correctamente.'
+  } catch (error) {
+    exportMessage.value = error instanceof Error ? error.message : 'No se pudo exportar la informacion.'
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 function changeStatisticsPeriod(period: StatisticsPeriod, date: string) {
@@ -1353,6 +1745,38 @@ function projectPayload() {
   }
 }
 
+async function createInitialTaskCollaboration(task: Task) {
+  const userIdentifier = taskForm.value.collaboratorIdentifier.trim()
+  if (!userIdentifier) return null
+
+  return apiRequest<Collaboration>('/collaborations/', {
+    method: 'POST',
+    body: JSON.stringify({
+      user: userIdForIdentifier(userIdentifier),
+      user_identifier: userIdentifier,
+      resource_type: 'TASK',
+      task: task.id,
+      role: taskForm.value.collaboratorRole,
+    }),
+  })
+}
+
+async function createInitialProjectCollaboration(project: Project) {
+  const userIdentifier = projectForm.value.collaboratorIdentifier.trim()
+  if (!userIdentifier) return null
+
+  return apiRequest<Collaboration>('/collaborations/', {
+    method: 'POST',
+    body: JSON.stringify({
+      user: userIdForIdentifier(userIdentifier),
+      user_identifier: userIdentifier,
+      resource_type: 'PROJECT',
+      project: project.id,
+      role: projectForm.value.collaboratorRole,
+    }),
+  })
+}
+
 async function submitCreateTask() {
   taskMessage.value = ''
   const payload = taskPayload()
@@ -1365,6 +1789,22 @@ async function submitCreateTask() {
       body: JSON.stringify(payload),
     })
     tasks.value = [createdTask, ...tasks.value.filter((task) => task.id !== createdTask.id)]
+    try {
+      const collaboration = await createInitialTaskCollaboration(createdTask)
+      if (collaboration) {
+        collaborations.value = [
+          collaboration,
+          ...collaborations.value.filter((item) => item.id !== collaboration.id),
+        ]
+      }
+    } catch (error) {
+      selectedTaskId.value = createdTask.id
+      taskShareMessage.value =
+        error instanceof Error ? `Tarea creada. ${error.message}` : 'Tarea creada. No se pudo invitar al colaborador.'
+      resetTaskForm()
+      setCurrentView('task-detail', { remember: false })
+      return
+    }
     resetTaskForm()
     setCurrentView('tasks', { remember: false })
   } catch (error) {
@@ -1427,6 +1867,22 @@ async function submitCreateProject() {
       body: JSON.stringify(payload),
     })
     projects.value = [createdProject, ...projects.value.filter((project) => project.id !== createdProject.id)]
+    try {
+      const collaboration = await createInitialProjectCollaboration(createdProject)
+      if (collaboration) {
+        collaborations.value = [
+          collaboration,
+          ...collaborations.value.filter((item) => item.id !== collaboration.id),
+        ]
+      }
+    } catch (error) {
+      selectedProjectId.value = createdProject.id
+      projectShareMessage.value =
+        error instanceof Error ? `Proyecto creado. ${error.message}` : 'Proyecto creado. No se pudo invitar al colaborador.'
+      resetProjectForm()
+      setCurrentView('project-detail', { remember: false })
+      return
+    }
     resetProjectForm()
     setCurrentView('projects', { remember: false })
   } catch (error) {
@@ -1657,6 +2113,28 @@ async function submitEditProfile() {
   }
 }
 
+async function deleteAccount() {
+  deleteAccountMessage.value = ''
+  const password = deleteAccountForm.value.password
+  if (!password) {
+    deleteAccountMessage.value = 'Introduce tu contrasena para confirmar la eliminacion.'
+    return
+  }
+
+  accountDeleting.value = true
+  try {
+    await apiRequest('/auth/delete-account/', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    })
+    clearSessionState()
+  } catch (error) {
+    deleteAccountMessage.value = error instanceof Error ? error.message : 'No se pudo eliminar la cuenta.'
+  } finally {
+    accountDeleting.value = false
+  }
+}
+
 function clearSessionState() {
   clearTokens()
   profile.value = null
@@ -1666,11 +2144,13 @@ function clearSessionState() {
   calendar.value = null
   achievements.value = []
   collaborations.value = []
+  notifications.value = []
   users.value = []
   productivitySessions.value = []
   selectedTaskId.value = null
   selectedProjectId.value = null
   resetEditProfileForm()
+  resetDeleteAccountForm()
   resetTaskForm()
   resetProjectForm()
   resetTaskShareForm()
@@ -1681,12 +2161,15 @@ function clearSessionState() {
   authMessage.value = ''
   dashboardMessage.value = ''
   editProfileMessage.value = ''
+  deleteAccountMessage.value = ''
   taskMessage.value = ''
   projectMessage.value = ''
   taskShareMessage.value = ''
   projectShareMessage.value = ''
   calendarMessage.value = ''
+  exportMessage.value = ''
   achievementMessage.value = ''
+  resetExportForm()
   resetTechniqueState()
 }
 
@@ -1800,6 +2283,16 @@ onMounted(() => {
       @switch-mode="switchAuthMode"
     />
 
+    <PantallaRecuperarContrasena
+      v-else-if="currentView === 'auth' && authMode === 'password-reset'"
+      :form="passwordResetForm"
+      :loading="loading"
+      :message="authMessage"
+      @request-reset="submitPasswordResetRequest"
+      @confirm-reset="submitPasswordResetConfirm"
+      @switch-mode="switchAuthMode"
+    />
+
     <PantallaIniciarSesion
       v-else-if="currentView === 'auth'"
       :login-form="loginForm"
@@ -1825,10 +2318,13 @@ onMounted(() => {
       :dashboard-message="dashboardMessage"
       :pending-collaborations="pendingCollaborations"
       :collaboration-loading="collaborationLoading"
+      :notifications="notifications"
+      :notification-loading="notificationLoading"
       @open-profile="openProfile"
       @navigate="handleNavigation"
       @accept-collaboration="acceptCollaboration"
       @reject-collaboration="rejectCollaboration"
+      @mark-notification-read="markNotificationRead"
     />
 
     <PantallaCalendario
@@ -1869,6 +2365,18 @@ onMounted(() => {
       :message="achievementMessage"
       @navigate="handleNavigation"
       @open-profile="openProfile"
+    />
+
+    <PantallaExportarDatos
+      v-else-if="currentView === 'export'"
+      :form="exportForm"
+      :projects="projects"
+      :initials="initials"
+      :loading="exportLoading"
+      :message="exportMessage"
+      @navigate="handleNavigation"
+      @open-profile="openProfile"
+      @submit="submitExport"
     />
 
     <PantallaTecnicas
@@ -2005,6 +2513,7 @@ onMounted(() => {
       v-else-if="currentView === 'task-create'"
       :form="taskForm"
       :projects="projects"
+      :users="users"
       :initials="initials"
       :loading="taskSaving"
       :message="taskMessage"
@@ -2084,6 +2593,7 @@ onMounted(() => {
     <PantallaCrearProyecto
       v-else-if="currentView === 'project-create'"
       :form="projectForm"
+      :users="users"
       :initials="initials"
       :loading="projectSaving"
       :message="projectMessage"
@@ -2127,9 +2637,13 @@ onMounted(() => {
       :display-name="profileDisplayName"
       :username="profileUsername"
       :email="profileEmail"
+      :delete-form="deleteAccountForm"
+      :delete-loading="accountDeleting"
+      :delete-message="deleteAccountMessage"
       @go-home="openDashboard"
       @navigate="handleNavigation"
       @edit-profile="openEditProfile"
+      @delete-account="deleteAccount"
       @logout="logout"
     />
 
@@ -2191,6 +2705,7 @@ onMounted(() => {
 .app-shell.has-back-button :global(.project-edit-content),
 .app-shell.has-back-button :global(.calendar-content),
 .app-shell.has-back-button :global(.achievements-content),
+.app-shell.has-back-button :global(.export-content),
 .app-shell.has-back-button :global(.techniques-content),
 .app-shell.has-back-button :global(.timer-content),
 .app-shell.has-back-button :global(.break-content),

@@ -1,14 +1,27 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaPerfil.vue"
+Descripcion: Representa la pantalla de perfil del usuario.
+-->
+
 <script setup lang="ts">
 import MenuLateral from './MenuLateral.vue'
+import type { DeleteAccountForm } from './types'
+
 const props = defineProps<{
   displayName: string
   username: string
   email: string
+  deleteForm: DeleteAccountForm
+  deleteLoading: boolean
+  deleteMessage: string
 }>()
 
 const emit = defineEmits<{
   'go-home': []
   'edit-profile': []
+  'delete-account': []
   logout: []
   navigate: [section: string]
 }>()
@@ -53,6 +66,25 @@ function handleNavigation(section: string) {
             <button class="edit-button" type="button" @click="emit('edit-profile')">Editar perfil</button>
             <button class="logout-button" type="button" @click="emit('logout')">Cerrar sesión</button>
           </div>
+
+          <form class="delete-account-form" @submit.prevent="emit('delete-account')">
+            <h3>Eliminar cuenta</h3>
+            <p>Esta acción elimina tu usuario y los datos asociados de forma permanente.</p>
+            <label for="deleteAccountPassword">Contraseña actual</label>
+            <div class="delete-row">
+              <input
+                id="deleteAccountPassword"
+                v-model="props.deleteForm.password"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+              <button type="submit" :disabled="props.deleteLoading">
+                {{ props.deleteLoading ? 'Eliminando...' : 'Eliminar cuenta' }}
+              </button>
+            </div>
+            <p v-if="props.deleteMessage" class="delete-message">{{ props.deleteMessage }}</p>
+          </form>
         </div>
       </div>
     </section>
@@ -183,6 +215,65 @@ function handleNavigation(section: string) {
   margin: 52px 0 0;
 }
 
+.delete-account-form {
+  width: min(100%, 520px);
+  display: grid;
+  gap: 8px;
+  margin-top: 34px;
+  border-top: 1px solid #75ddcb;
+  padding-top: 22px;
+}
+
+.delete-account-form h3 {
+  margin: 0;
+  color: #e43f4d;
+  font-size: 1.12rem;
+}
+
+.delete-account-form p {
+  margin: 0;
+  color: #6d7180;
+  font-size: 0.9rem;
+}
+
+.delete-account-form label {
+  margin-top: 6px;
+  font-size: 0.95rem;
+}
+
+.delete-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 160px;
+  gap: 12px;
+  align-items: center;
+}
+
+.delete-row input {
+  height: 30px;
+  border: 2px solid #7161ff;
+  border-radius: 8px;
+  padding: 0 10px;
+  outline: none;
+}
+
+.delete-row button {
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #e43f4d;
+  cursor: pointer;
+}
+
+.delete-row button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.delete-account-form .delete-message {
+  color: #e43f4d;
+}
+
 .edit-button,
 .logout-button {
   width: 100%;
@@ -222,6 +313,10 @@ function handleNavigation(section: string) {
   .profile-actions {
     width: min(100%, 460px);
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .delete-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>

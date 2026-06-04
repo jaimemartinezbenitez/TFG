@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "MenuLateral.vue"
+Descripcion: Representa el menú lateral de navegación principal.
+-->
+
 <script setup lang="ts">
 type MenuSection =
   | 'inicio'

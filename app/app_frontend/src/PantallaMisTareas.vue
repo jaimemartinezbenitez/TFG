@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaMisTareas.vue"
+Descripcion: Representa el listado general de tareas del usuario.
+-->
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
@@ -32,6 +39,7 @@ const totalTasks = computed(() => props.tasks.length)
 const pendingTasks = computed(() => props.tasks.filter((task) => task.status === 'PENDING').length)
 const inProgressTasks = computed(() => props.tasks.filter((task) => task.status === 'IN_PROGRESS').length)
 const completedTasks = computed(() => props.tasks.filter((task) => task.status === 'COMPLETED').length)
+const highPriorityTasks = computed(() => props.tasks.filter((task) => task.priority === 'HIGH').length)
 
 function priorityLabel(priority: Task['priority']) {
   return {
@@ -95,6 +103,12 @@ function developedByLabel(task: Task) {
   if (developers.length <= 2) return developers.join(', ')
   return `${developers.slice(0, 2).join(', ')} +${developers.length - 2}`
 }
+
+function ownershipLabel(task: Task) {
+  if (task.is_owner) return 'Propia'
+  if (task.collaboration_role) return `Compartida · ${task.collaboration_role}`
+  return 'Tarea'
+}
 </script>
 
 <template>
@@ -105,12 +119,7 @@ function developedByLabel(task: Task) {
       <header class="tasks-header">
         <div>
           <h1>Mis tareas</h1>
-          <div class="task-stats" aria-label="Resumen de tareas">
-            <span>Todas <strong class="accent">{{ totalTasks }}</strong></span>
-            <span>Pendientes <strong class="danger">{{ pendingTasks }}</strong></span>
-            <span>En progreso <strong class="warning">{{ inProgressTasks }}</strong></span>
-            <span>Completadas <strong class="success">{{ completedTasks }}</strong></span>
-          </div>
+          <p>Organiza, revisa y prioriza el trabajo activo.</p>
         </div>
 
         <div class="header-actions">
@@ -127,45 +136,59 @@ function developedByLabel(task: Task) {
       <p v-if="props.message" class="task-message">{{ props.message }}</p>
       <p v-else-if="props.loading" class="task-message">Cargando tareas...</p>
 
+      <div class="task-stats" aria-label="Resumen de tareas">
+        <article>
+          <span>Total</span>
+          <strong class="accent">{{ totalTasks }}</strong>
+        </article>
+        <article>
+          <span>Pendientes</span>
+          <strong class="danger">{{ pendingTasks }}</strong>
+        </article>
+        <article>
+          <span>En progreso</span>
+          <strong class="warning">{{ inProgressTasks }}</strong>
+        </article>
+        <article>
+          <span>Alta prioridad</span>
+          <strong class="success">{{ highPriorityTasks }}</strong>
+        </article>
+        <article>
+          <span>Completadas</span>
+          <strong class="accent">{{ completedTasks }}</strong>
+        </article>
+      </div>
+
+      <div class="task-table-shell">
       <div class="task-table" role="table" aria-label="Listado de tareas">
         <div class="task-row task-row-head" role="row">
           <span></span>
           <strong>Tarea</strong>
-          <strong>PRIORIDAD</strong>
-          <strong>ESTADO</strong>
-          <strong>Proyecto</strong>
-          <strong>Colaborador</strong>
-          <strong>Creada por</strong>
-          <strong>Desarrollada por</strong>
-          <strong>Fecha</strong>
+          <strong>Prioridad</strong>
+          <strong>Estado</strong>
+          <strong>Entrega</strong>
           <span></span>
         </div>
 
         <div v-for="task in orderedTasks" :key="task.id" class="task-row" role="row">
-          <input
-            class="task-checkbox"
-            type="checkbox"
-            :checked="task.status === 'COMPLETED'"
-            disabled
-            aria-label="Estado de tarea"
-          />
-          <button class="task-title-button" type="button" @click="emit('view-task', task)">
-            {{ task.title }}
-          </button>
-          <strong class="priority" :class="priorityClass(task.priority)">
+          <span class="task-state-dot" :class="statusClass(task.status)" aria-hidden="true"></span>
+          <div class="task-main-cell">
+            <button class="task-title-button" type="button" @click="emit('view-task', task)">
+              {{ task.title }}
+            </button>
+            <div class="task-meta">
+              <span>{{ projectName(task) }}</span>
+              <span>{{ ownershipLabel(task) }}</span>
+              <span>{{ collaboratorsLabel(task) || 'Sin colaboradores' }}</span>
+            </div>
+            <small>Creada por {{ createdByLabel(task) }} · Desarrollada por {{ developedByLabel(task) }}</small>
+          </div>
+          <strong class="priority badge" :class="priorityClass(task.priority)">
             {{ priorityLabel(task.priority) }}
           </strong>
-          <strong class="task-status" :class="statusClass(task.status)">
+          <strong class="task-status badge" :class="statusClass(task.status)">
             {{ statusLabel(task.status) }}
           </strong>
-          <span class="project-cell" :class="{ empty: !task.project }">
-            {{ projectName(task) }}
-          </span>
-          <span class="collaborator-cell" :class="{ empty: !collaboratorsLabel(task) }">
-            {{ collaboratorsLabel(task) || 'Sin colaboradores' }}
-          </span>
-          <span class="author-cell">{{ createdByLabel(task) }}</span>
-          <span class="author-cell">{{ developedByLabel(task) }}</span>
           <time>{{ formatDate(task.due_date) }}</time>
           <div class="row-actions">
             <button v-if="task.can_edit" class="icon-button" type="button" title="Editar tarea" @click="emit('edit-task', task)">
@@ -178,6 +201,7 @@ function developedByLabel(task: Task) {
         </div>
 
         <p v-if="!props.loading && !orderedTasks.length" class="empty-state">Aun no tienes tareas.</p>
+      </div>
       </div>
     </section>
   </section>
@@ -213,17 +237,38 @@ function developedByLabel(task: Task) {
   line-height: 1;
 }
 
+.tasks-header p {
+  margin: 0;
+  color: #6d7180;
+  font-size: 1.04rem;
+}
+
 .task-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 28px;
-  align-items: center;
-  font-size: 0.88rem;
+  width: min(100%, 980px);
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(118px, 1fr));
+  gap: 12px;
+}
+
+.task-stats article {
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fbfffe;
+  padding: 12px 14px;
+}
+
+.task-stats span {
+  color: #6d7180;
+  font-size: 0.82rem;
 }
 
 .task-stats strong {
-  margin-left: 10px;
-  font-size: 1.2rem;
+  font-size: 1.55rem;
 }
 
 .accent {
@@ -302,44 +347,50 @@ function developedByLabel(task: Task) {
   margin: 18px 0 0;
 }
 
+.task-table-shell {
+  width: min(100%, 1180px);
+  margin-top: 22px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
 .task-table {
   width: 100%;
-  margin-top: 12px;
 }
 
 .task-row {
-  min-height: 41px;
+  min-height: 76px;
   display: grid;
-  grid-template-columns: 34px minmax(200px, 1.1fr) minmax(105px, 0.22fr) minmax(125px, 0.26fr) minmax(150px, 0.32fr) minmax(150px, 0.32fr) minmax(115px, 0.26fr) minmax(150px, 0.32fr) minmax(105px, 0.22fr) 112px;
+  grid-template-columns: 34px minmax(300px, 1fr) 112px 132px 112px 104px;
+  gap: 12px;
   align-items: center;
   border-bottom: 1px solid #75ddcb;
+  padding: 0 18px;
 }
 
 .task-row-head {
-  min-height: 25px;
+  min-height: 42px;
+  background: #fbfffe;
 }
 
 .task-row-head strong {
-  text-align: center;
-  font-size: 1rem;
-}
-
-.task-row-head strong:first-of-type {
+  color: #565b6a;
   text-align: left;
+  font-size: 0.82rem;
+  text-transform: uppercase;
 }
 
-.task-checkbox {
-  width: 20px;
-  height: 20px;
-  appearance: none;
-  border: 1.5px solid #00a8a8;
-  border-radius: 4px;
-  background: #fff;
+.task-row-head strong:nth-of-type(n + 2) {
+  text-align: center;
 }
 
-.task-checkbox:checked {
-  background:
-    linear-gradient(45deg, transparent 45%, #00a8a8 46% 55%, transparent 56%) center / 14px 14px no-repeat;
+.task-state-dot {
+  width: 16px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .task-title-button {
@@ -352,46 +403,92 @@ function developedByLabel(task: Task) {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  font-size: 1rem;
+  font-weight: 800;
 }
 
-.priority,
-.task-status,
-.collaborator-cell,
-.author-cell,
+.task-main-cell {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.task-meta {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-meta span {
+  max-width: 180px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d5f6ef;
+  border-radius: 999px;
+  color: #715cff;
+  padding: 3px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.task-main-cell small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8d91a1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.badge,
 .task-row time {
   text-align: center;
 }
 
-.project-cell,
-.collaborator-cell,
-.author-cell {
-  min-width: 0;
-  overflow: hidden;
-  color: #715cff;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.badge {
+  justify-self: center;
+  min-width: 88px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #f7f8ff;
+  font-size: 0.78rem;
 }
 
-.project-cell.empty,
-.collaborator-cell.empty {
-  color: #9a9daa;
-  font-weight: 500;
+.priority.low {
+  color: #3f6df6;
+  background: #edf3ff;
+}
+
+.priority.medium {
+  color: #c89200;
+  background: #fff7df;
+}
+
+.priority.high {
+  color: #ff2d3b;
+  background: #ffecef;
 }
 
 .status-pending {
   color: #f2b705;
+  background: #fff7df;
 }
 
 .status-progress {
   color: #00bf63;
+  background: #e8fbf4;
 }
 
 .status-completed {
   color: #3f6df6;
+  background: #edf3ff;
 }
 
 .status-cancelled {
   color: #ff2d3b;
+  background: #ffecef;
 }
 
 .row-actions {
@@ -441,7 +538,11 @@ function developedByLabel(task: Task) {
   }
 
   .task-row {
-    min-width: 1360px;
+    min-width: 860px;
+  }
+
+  .task-stats {
+    grid-template-columns: 1fr;
   }
 }
 </style>

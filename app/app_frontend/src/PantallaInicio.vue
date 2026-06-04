@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaInicio.vue"
+Descripcion: Representa el panel inicial con resumen de actividad.
+-->
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
@@ -6,6 +13,7 @@ import type {
   ActivityItem,
   Collaboration,
   DashboardTaskItem,
+  Notification,
   ProductivitySession,
   ProductivityTechnique,
 } from './types'
@@ -25,6 +33,8 @@ const props = defineProps<{
   dashboardMessage: string
   pendingCollaborations: Collaboration[]
   collaborationLoading: boolean
+  notifications: Notification[]
+  notificationLoading: boolean
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +42,7 @@ const emit = defineEmits<{
   navigate: [section: string]
   'accept-collaboration': [collaboration: Collaboration]
   'reject-collaboration': [collaboration: Collaboration]
+  'mark-notification-read': [notification: Notification]
 }>()
 
 const orderedProductivitySessions = computed(() =>
@@ -57,6 +68,13 @@ const recentProductivitySessions = computed(() => orderedProductivitySessions.va
 const recentAchievements = computed(() =>
   [...props.achievements]
     .sort((a, b) => new Date(b.achieved_at).getTime() - new Date(a.achieved_at).getTime())
+    .slice(0, 4),
+)
+
+const unreadNotifications = computed(() =>
+  [...props.notifications]
+    .filter((notification) => !notification.read)
+    .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
     .slice(0, 4),
 )
 
@@ -154,6 +172,15 @@ function dateLabel(value: string) {
     minute: '2-digit',
   }).format(new Date(value))
 }
+
+function notificationDate(value: string) {
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
 </script>
 
 <template>
@@ -174,125 +201,154 @@ function dateLabel(value: string) {
       <p v-if="props.dashboardMessage" class="dashboard-error">{{ props.dashboardMessage }}</p>
       <p v-else-if="props.dashboardLoading" class="loading-copy">Cargando resumen...</p>
 
-      <div class="stats-row" aria-label="Resumen de productividad">
-        <article>
-          <span>Tareas pendientes</span>
-          <strong class="danger">{{ props.pendingTasks }}</strong>
-        </article>
-        <article>
-          <span>Tareas completadas</span>
-          <strong class="accent">{{ props.completedTasks }}</strong>
-        </article>
-        <article>
-          <span>Proyectos activos</span>
-          <strong>{{ props.activeProjects }}</strong>
-        </article>
-        <article>
-          <span>Minutos efectivos</span>
-          <strong>{{ props.effectiveMinutes }}</strong>
-        </article>
-      </div>
-
-      <section v-if="props.pendingCollaborations.length" class="invitations-panel" aria-label="Invitaciones de colaboracion pendientes">
-        <h2>Invitaciones pendientes:</h2>
-        <ul>
-          <li v-for="collaboration in props.pendingCollaborations" :key="collaboration.id">
-            <div>
-              <strong>{{ invitationType(collaboration) }}: {{ collaboration.resource_name }}</strong>
-              <span>{{ collaboration.owner?.username }} te invita como {{ collaboration.role }}</span>
-            </div>
-            <div class="invitation-actions">
-              <button type="button" :disabled="props.collaborationLoading" @click="emit('accept-collaboration', collaboration)">Aceptar</button>
-              <button class="reject-button" type="button" :disabled="props.collaborationLoading" @click="emit('reject-collaboration', collaboration)">Rechazar</button>
-            </div>
-          </li>
-        </ul>
-      </section>
-
-      <div class="dashboard-grid">
-        <section class="panel">
-          <h2>Tareas proximas:</h2>
-          <ul class="task-list">
-            <li v-for="task in props.upcomingTasks" :key="task.id">
-              <span class="alert-icon">!</span>
-              <span class="task-title">{{ task.title }}</span>
-              <time>{{ task.dateLabel }}</time>
-            </li>
-            <li v-if="!props.upcomingTasks.length" class="empty-row">No hay tareas proximas.</li>
-          </ul>
-        </section>
-
-        <section class="panel">
-          <h2>Actividad reciente:</h2>
-          <ul class="activity-list">
-            <li v-for="task in props.recentActivity" :key="task.id">
-              <span class="activity-dot" :class="task.statusClass"></span>
-              <span class="task-title">{{ task.title }}</span>
-              <small>{{ task.statusLabel }}</small>
-            </li>
-            <li v-if="!props.recentActivity.length" class="empty-row">Aun no hay actividad.</li>
-          </ul>
-        </section>
-      </div>
-
-
-      <div class="dashboard-lower-grid">
-        <section class="achievements-panel" aria-label="Logros obtenidos">
-        <div class="section-heading">
-          <h2>Logros obtenidos:</h2>
-          <button type="button" @click="emit('navigate', 'logros')">Ver todos</button>
-        </div>
-
-        <ul>
-          <li v-for="achievement in recentAchievements" :key="achievement.id">
-            <span class="achievement-badge" :class="achievementTone(achievement.name)">
-              {{ achievementSymbol(achievement.name) }}
-            </span>
-            <div>
-              <strong>{{ achievement.name }}</strong>
-              <small>{{ achievement.description }}</small>
-            </div>
-            <time>{{ achievementDate(achievement.achieved_at) }}</time>
-          </li>
-          <li v-if="!recentAchievements.length" class="empty-row">Aun no hay logros desbloqueados.</li>
-        </ul>
-        </section>
-
-        <section class="sessions-panel" aria-label="Resumen de sesiones de productividad">
-        <div class="sessions-summary">
+      <div class="dashboard-layout">
+        <div class="stats-row" aria-label="Resumen de productividad">
           <article>
-            <strong>{{ completedProductivitySessions.length }}</strong>
-            <span>sesiones completadas</span>
+            <span>Tareas pendientes</span>
+            <strong class="danger">{{ props.pendingTasks }}</strong>
           </article>
           <article>
-            <strong>{{ durationLabel(totalFocusMinutes) }}</strong>
-            <span>tiempo de enfoque</span>
+            <span>Tareas completadas</span>
+            <strong class="accent">{{ props.completedTasks }}</strong>
           </article>
           <article>
-            <strong>{{ completedCycles }}</strong>
-            <span>ciclos completados</span>
+            <span>Proyectos activos</span>
+            <strong>{{ props.activeProjects }}</strong>
           </article>
           <article>
-            <strong>{{ favoriteTechnique }}</strong>
-            <span>técnica más usada</span>
+            <span>Minutos efectivos</span>
+            <strong>{{ props.effectiveMinutes }}</strong>
           </article>
         </div>
 
-        <div class="sessions-recent">
-          <h2>Sesiones de productividad:</h2>
-          <ul>
-            <li v-for="session in recentProductivitySessions" :key="session.id">
-              <span class="session-dot" :class="`session-${session.status.toLowerCase()}`"></span>
-              <strong>{{ techniqueLabel(session.technique) }}</strong>
-              <small>{{ sessionStatusLabel(session.status) }}</small>
-              <time>{{ durationLabel(session.effective_time) }} · {{ dateLabel(session.start_at) }}</time>
-            </li>
-            <li v-if="!recentProductivitySessions.length" class="empty-row">
-              Aun no hay sesiones de productividad registradas.
-            </li>
-          </ul>
+        <div class="dashboard-main-grid">
+          <section class="panel tasks-panel">
+            <h2>Tareas proximas:</h2>
+            <ul class="task-list">
+              <li v-for="task in props.upcomingTasks" :key="task.id">
+                <span class="alert-icon">!</span>
+                <span class="task-title">{{ task.title }}</span>
+                <time>{{ task.dateLabel }}</time>
+              </li>
+              <li v-if="!props.upcomingTasks.length" class="empty-row">No hay tareas proximas.</li>
+            </ul>
+          </section>
+
+          <section class="notifications-panel" aria-label="Recordatorios y notificaciones">
+            <div class="section-heading">
+              <h2>Recordatorios:</h2>
+              <span v-if="props.notificationLoading">Actualizando...</span>
+            </div>
+            <ul>
+              <li v-for="notification in unreadNotifications" :key="notification.id">
+                <span class="notification-icon" aria-hidden="true">!</span>
+                <div>
+                  <strong>{{ notification.message }}</strong>
+                  <time>{{ notificationDate(notification.event_date) }}</time>
+                </div>
+                <button
+                  type="button"
+                  title="Marcar como leida"
+                  :disabled="props.notificationLoading"
+                  @click="emit('mark-notification-read', notification)"
+                >
+                  Leída
+                </button>
+              </li>
+              <li v-if="!unreadNotifications.length" class="empty-row">No hay recordatorios pendientes.</li>
+            </ul>
+          </section>
+
+          <section class="panel activity-panel">
+            <h2>Actividad reciente:</h2>
+            <ul class="activity-list">
+              <li v-for="task in props.recentActivity" :key="task.id">
+                <span class="activity-dot" :class="task.statusClass"></span>
+                <span class="task-title">{{ task.title }}</span>
+                <small>{{ task.statusLabel }}</small>
+              </li>
+              <li v-if="!props.recentActivity.length" class="empty-row">Aun no hay actividad.</li>
+            </ul>
+          </section>
+
+          <section class="invitations-panel" aria-label="Invitaciones de colaboracion pendientes">
+            <h2>Invitaciones pendientes:</h2>
+            <ul>
+              <li v-for="collaboration in props.pendingCollaborations" :key="collaboration.id">
+                <div>
+                  <strong>{{ invitationType(collaboration) }}: {{ collaboration.resource_name }}</strong>
+                  <span>{{ collaboration.owner?.username }} te invita como {{ collaboration.role }}</span>
+                </div>
+                <div class="invitation-actions">
+                  <button type="button" :disabled="props.collaborationLoading" @click="emit('accept-collaboration', collaboration)">Aceptar</button>
+                  <button class="reject-button" type="button" :disabled="props.collaborationLoading" @click="emit('reject-collaboration', collaboration)">Rechazar</button>
+                </div>
+              </li>
+              <li v-if="!props.pendingCollaborations.length" class="empty-row">No hay invitaciones pendientes.</li>
+            </ul>
+          </section>
+
+          <section class="sessions-panel" aria-label="Resumen de sesiones de productividad">
+            <div class="section-heading">
+              <h2>Productividad:</h2>
+              <button type="button" @click="emit('navigate', 'tecnicas')">Técnicas</button>
+            </div>
+
+            <div class="sessions-summary">
+              <article>
+                <strong>{{ completedProductivitySessions.length }}</strong>
+                <span>sesiones completadas</span>
+              </article>
+              <article>
+                <strong>{{ durationLabel(totalFocusMinutes) }}</strong>
+                <span>tiempo de enfoque</span>
+              </article>
+              <article>
+                <strong>{{ completedCycles }}</strong>
+                <span>ciclos completados</span>
+              </article>
+              <article>
+                <strong>{{ favoriteTechnique }}</strong>
+                <span>técnica más usada</span>
+              </article>
+            </div>
+
+            <div class="sessions-recent">
+              <ul>
+                <li v-for="session in recentProductivitySessions" :key="session.id">
+                  <span class="session-dot" :class="`session-${session.status.toLowerCase()}`"></span>
+                  <strong>{{ techniqueLabel(session.technique) }}</strong>
+                  <small>{{ sessionStatusLabel(session.status) }}</small>
+                  <time>{{ durationLabel(session.effective_time) }} · {{ dateLabel(session.start_at) }}</time>
+                </li>
+                <li v-if="!recentProductivitySessions.length" class="empty-row">
+                  Aun no hay sesiones de productividad registradas.
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="achievements-panel" aria-label="Logros obtenidos">
+            <div class="section-heading">
+              <h2>Logros obtenidos:</h2>
+              <button type="button" @click="emit('navigate', 'logros')">Ver todos</button>
+            </div>
+
+            <ul>
+              <li v-for="achievement in recentAchievements" :key="achievement.id">
+                <span class="achievement-badge" :class="achievementTone(achievement.name)">
+                  {{ achievementSymbol(achievement.name) }}
+                </span>
+                <div>
+                  <strong>{{ achievement.name }}</strong>
+                  <small>{{ achievement.description }}</small>
+                </div>
+                <time>{{ achievementDate(achievement.achieved_at) }}</time>
+              </li>
+              <li v-if="!recentAchievements.length" class="empty-row">Aun no hay logros desbloqueados.</li>
+            </ul>
+          </section>
         </div>
-        </section>
       </div>
     </section>
   </section>
@@ -355,17 +411,22 @@ function dateLabel(value: string) {
 }
 
 .stats-row {
-  max-width: 860px;
-  margin-top: 26px;
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(120px, 1fr));
-  gap: 28px;
+  gap: 14px;
   text-align: center;
 }
 
 .stats-row article {
+  min-height: 92px;
   display: grid;
+  align-content: center;
   gap: 12px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fbfffe;
+  padding: 12px;
 }
 
 .stats-row span {
@@ -388,22 +449,50 @@ function dateLabel(value: string) {
 }
 
 
-.dashboard-lower-grid {
-  width: min(100%, 1220px);
+.dashboard-layout {
+  width: min(100%, 1180px);
+  margin-top: 28px;
   display: grid;
-  grid-template-columns: minmax(430px, 0.95fr) minmax(460px, 1fr);
-  gap: 42px;
-  align-items: start;
-  margin-top: 30px;
+  gap: 22px;
 }
 
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(340px, 0.9fr);
+  gap: 20px 28px;
+  align-items: start;
+}
+
+.panel,
+.notifications-panel,
+.invitations-panel,
 .achievements-panel,
 .sessions-panel {
   min-width: 0;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px 20px;
+}
+
+.tasks-panel,
+.notifications-panel,
+.activity-panel,
+.invitations-panel {
+  min-height: 188px;
+}
+
+.sessions-panel,
+.achievements-panel {
+  min-height: 300px;
+}
+
+.sessions-panel {
+  grid-column: 1;
 }
 
 .achievements-panel {
-  width: 100%;
+  grid-column: 2;
 }
 
 .section-heading {
@@ -419,7 +508,8 @@ function dateLabel(value: string) {
   font-size: 1rem;
 }
 
-.section-heading button {
+.section-heading button,
+.sessions-panel .section-heading button {
   min-width: 92px;
   height: 30px;
   border: 0;
@@ -431,8 +521,7 @@ function dateLabel(value: string) {
 
 .achievements-panel ul {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 18px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -499,7 +588,6 @@ function dateLabel(value: string) {
 }
 
 .sessions-panel {
-  width: 100%;
   display: grid;
   grid-template-columns: 1fr;
   gap: 18px;
@@ -534,11 +622,6 @@ function dateLabel(value: string) {
 
 .sessions-recent {
   min-width: 0;
-}
-
-.sessions-recent h2 {
-  margin: 0 0 12px;
-  font-size: 1rem;
 }
 
 .sessions-recent ul {
@@ -584,24 +667,100 @@ function dateLabel(value: string) {
 }
 
 .invitations-panel {
-  max-width: 760px;
-  margin-top: 30px;
+  width: 100%;
 }
 
-.invitations-panel h2 {
+.notifications-panel {
+  width: 100%;
+}
+
+.invitations-panel h2,
+.panel h2 {
   margin: 0 0 12px;
   font-size: 1rem;
 }
 
+.notifications-panel .section-heading {
+  margin-bottom: 8px;
+}
+
+.notifications-panel .section-heading span {
+  color: #8d91a1;
+  font-size: 0.8rem;
+}
+
 .invitations-panel ul {
   display: grid;
-  gap: 8px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.notifications-panel ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notifications-panel li {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #75ddcb;
+  padding: 7px 0;
+}
+
+.notification-icon {
+  width: 26px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 3px solid #ff2d3b;
+  border-radius: 50%;
+  color: #ff2d3b;
+  font-weight: 800;
+}
+
+.notifications-panel li div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.notifications-panel strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifications-panel time {
+  color: #8d91a1;
+  font-size: 0.76rem;
+}
+
+.notifications-panel button {
+  min-width: 78px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #715cff;
+  cursor: pointer;
+}
+
+.notifications-panel button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .invitations-panel li {
+  min-height: 56px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
@@ -643,18 +802,6 @@ function dateLabel(value: string) {
 .invitation-actions button:disabled {
   opacity: 0.65;
   cursor: wait;
-}
-
-.dashboard-grid {
-  margin-top: 34px;
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(280px, 0.95fr);
-  gap: 46px;
-}
-
-.panel h2 {
-  margin: 0 0 24px;
-  font-size: 1rem;
 }
 
 .task-list,
@@ -739,8 +886,13 @@ function dateLabel(value: string) {
 }
 
 @media (max-width: 1180px) {
-  .dashboard-lower-grid {
+  .dashboard-main-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sessions-panel,
+  .achievements-panel {
+    grid-column: auto;
   }
 }
 
@@ -754,8 +906,7 @@ function dateLabel(value: string) {
   }
 
   .stats-row,
-  .dashboard-grid,
-  .dashboard-lower-grid,
+  .dashboard-main-grid,
   .sessions-summary,
   .achievements-panel ul {
     grid-template-columns: 1fr;
@@ -763,7 +914,7 @@ function dateLabel(value: string) {
 
   .achievements-panel li,
   .sessions-recent li {
-    grid-template-columns: 20px minmax(0, 1fr);
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
   .achievements-panel time,

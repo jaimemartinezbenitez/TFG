@@ -1,22 +1,23 @@
 <!--
 Autor: Jaime Martínez Benítez
 TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
-Archivo: "PantallaRegistro.vue"
-Descripcion: Representa el formulario de registro de usuario.
+Archivo: "PantallaRecuperarContrasena.vue"
+Descripcion: Representa el flujo para recuperar la contraseña mediante token.
 -->
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { AuthMode, RegisterForm } from './types'
+import type { AuthMode, PasswordResetForm } from './types'
 
 const props = defineProps<{
-  registerForm: RegisterForm
+  form: PasswordResetForm
   loading: boolean
   message: string
 }>()
 
 const emit = defineEmits<{
-  'submit-register': []
+  'request-reset': []
+  'confirm-reset': []
   'switch-mode': [mode: AuthMode]
 }>()
 
@@ -25,38 +26,45 @@ const showConfirmPassword = ref(false)
 </script>
 
 <template>
-  <section class="register-screen">
-    <div class="register-frame">
+  <section class="reset-screen">
+    <div class="reset-frame">
       <img class="brand-logo" src="/logo.png" alt="ConcentraPlus" />
 
-      <form class="register-form" @submit.prevent="emit('submit-register')">
-        <h1>Crear cuenta</h1>
+      <div class="reset-panel">
+        <header>
+          <h1>Recuperar contraseña</h1>
+          <p>Genera un token de recuperación y escribe tu nueva contraseña.</p>
+        </header>
 
-        <div class="field">
-          <label for="username">Nombre de usuario</label>
-          <input id="username" v-model.trim="props.registerForm.username" required autocomplete="username" />
-        </div>
-
-        <div class="field">
-          <label for="email">Correo electrónico</label>
+        <form class="reset-form request-form" @submit.prevent="emit('request-reset')">
+          <h2>Generar token</h2>
+          <label for="resetEmail">Correo de la cuenta</label>
           <input
-            id="email"
-            v-model.trim="props.registerForm.email"
-            required
+            id="resetEmail"
+            v-model.trim="props.form.email"
             type="email"
+            required
             autocomplete="email"
+            placeholder="correo@ejemplo.com"
           />
-        </div>
+          <button class="secondary-button" type="submit" :disabled="props.loading">
+            {{ props.loading ? 'Generando...' : 'Generar token' }}
+          </button>
+        </form>
 
-        <div class="field">
-          <label for="password">Contraseña</label>
+        <form class="reset-form confirm-form" @submit.prevent="emit('confirm-reset')">
+          <h2>Confirmar cambio</h2>
+          <label for="resetToken">Token recibido</label>
+          <input id="resetToken" v-model.trim="props.form.token" required autocomplete="one-time-code" />
+
+          <label for="resetPassword">Nueva contraseña</label>
           <div class="password-input">
             <input
-              id="password"
-              v-model="props.registerForm.password"
+              id="resetPassword"
+              v-model="props.form.password"
               required
-              :type="showPassword ? 'text' : 'password'"
               maxlength="12"
+              :type="showPassword ? 'text' : 'password'"
               autocomplete="new-password"
             />
             <button
@@ -68,17 +76,15 @@ const showConfirmPassword = ref(false)
               <span class="eye-icon" :class="{ hidden: !showPassword }" aria-hidden="true"></span>
             </button>
           </div>
-        </div>
 
-        <div class="field">
-          <label for="confirmPassword">Confirmar contraseña</label>
+          <label for="resetConfirmPassword">Confirmar contraseña</label>
           <div class="password-input">
             <input
-              id="confirmPassword"
-              v-model="props.registerForm.confirmPassword"
+              id="resetConfirmPassword"
+              v-model="props.form.confirmPassword"
               required
-              :type="showConfirmPassword ? 'text' : 'password'"
               maxlength="12"
+              :type="showConfirmPassword ? 'text' : 'password'"
               autocomplete="new-password"
             />
             <button
@@ -90,30 +96,30 @@ const showConfirmPassword = ref(false)
               <span class="eye-icon" :class="{ hidden: !showConfirmPassword }" aria-hidden="true"></span>
             </button>
           </div>
-        </div>
 
-        <p v-if="props.message" class="form-message">{{ props.message }}</p>
+          <p v-if="props.message" class="form-message">{{ props.message }}</p>
 
-        <button class="submit-button" type="submit" :disabled="props.loading">
-          {{ props.loading ? 'Registrando...' : 'Registrarse' }}
-        </button>
+          <button class="submit-button" type="submit" :disabled="props.loading">
+            {{ props.loading ? 'Actualizando...' : 'Cambiar contraseña' }}
+          </button>
+        </form>
+
         <p class="switch-copy">
-          ¿Ya tienes una cuenta?
-          <a href="#" @click.prevent="emit('switch-mode', 'login')">Inicia sesión</a>
+          <a href="#" @click.prevent="emit('switch-mode', 'login')">Volver al inicio de sesión</a>
         </p>
-      </form>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.register-screen {
+.reset-screen {
   min-height: 100vh;
   padding: 3px;
   background: #fbfbfc;
 }
 
-.register-frame {
+.reset-frame {
   min-height: calc(100vh - 6px);
   display: flex;
   flex-direction: column;
@@ -131,37 +137,52 @@ const showConfirmPassword = ref(false)
   object-fit: contain;
 }
 
-.register-form {
-  width: min(100%, 360px);
+.reset-panel {
+  width: min(100%, 760px);
   display: grid;
-  justify-items: center;
-  margin-top: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 28px;
+  margin-top: 12px;
+  border: 2px solid #715cff;
+  border-radius: 8px;
+  padding: clamp(22px, 4vw, 34px);
 }
 
-.register-form h1 {
-  margin: 0 0 18px;
+header,
+.switch-copy {
+  grid-column: 1 / -1;
   text-align: center;
-  font-size: clamp(2rem, 4vw, 2.35rem);
-  line-height: 1.1;
 }
 
-.field {
-  width: 100%;
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+}
+
+header p {
+  margin: 14px 0 0;
+  font-size: 1.08rem;
+}
+
+.reset-form {
   display: grid;
-  justify-items: start;
-  gap: 9px;
-  margin-bottom: 14px;
+  align-content: start;
+  gap: 10px;
 }
 
-.field label {
-  font-size: 1.05rem;
+h2 {
+  margin: 0 0 4px;
+  font-size: 1.24rem;
 }
 
-.field > input,
-.password-input input {
-  width: 300px;
-  max-width: 100%;
-  height: 30px;
+label {
+  font-size: 1rem;
+}
+
+input {
+  width: 100%;
+  height: 34px;
   border: 2px solid #7161ff;
   border-radius: 8px;
   padding: 0 12px;
@@ -169,20 +190,16 @@ const showConfirmPassword = ref(false)
   background: #fff;
 }
 
-.field > input:focus,
-.password-input input:focus {
+input:focus {
   box-shadow: 0 0 0 3px rgb(113 97 255 / 16%);
 }
 
 .password-input {
   position: relative;
-  width: 300px;
-  max-width: 100%;
 }
 
 .password-input input {
-  width: 100%;
-  padding-right: 40px;
+  padding-right: 38px;
 }
 
 .visibility-button {
@@ -232,35 +249,41 @@ const showConfirmPassword = ref(false)
   transform: rotate(-35deg);
 }
 
-.form-message {
-  width: 100%;
-  margin: 0 0 12px;
-  color: #e5333f;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
+.secondary-button,
 .submit-button {
-  width: 222px;
-  max-width: 100%;
-  height: 30px;
+  height: 34px;
   margin-top: 8px;
-  border: 0;
   border-radius: 999px;
-  color: #fff;
-  background: #7563f6;
   cursor: pointer;
 }
 
+.secondary-button {
+  border: 1.5px solid #101010;
+  color: #101010;
+  background: #fff;
+}
+
+.submit-button {
+  border: 0;
+  color: #fff;
+  background: #7563f6;
+}
+
+.secondary-button:disabled,
 .submit-button:disabled {
   cursor: progress;
   opacity: 0.7;
 }
 
-.switch-copy {
-  margin: 18px 0 0;
+.form-message {
+  margin: 0;
+  color: #e5333f;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+}
+
+.switch-copy {
+  margin: 0;
 }
 
 .switch-copy a {
@@ -268,15 +291,9 @@ const showConfirmPassword = ref(false)
   text-decoration: none;
 }
 
-@media (max-width: 620px) {
-  .register-frame {
-    justify-content: center;
-    padding-inline: 18px;
-  }
-
-  .field > input,
-  .password-input {
-    width: 100%;
+@media (max-width: 760px) {
+  .reset-panel {
+    grid-template-columns: 1fr;
   }
 }
 </style>

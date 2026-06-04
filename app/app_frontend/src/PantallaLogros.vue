@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaLogros.vue"
+Descripcion: Representa la pantalla de logros obtenidos por el usuario.
+-->
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import MenuLateral from './MenuLateral.vue'

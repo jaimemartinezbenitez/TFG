@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaEditarPerfil.vue"
+Descripcion: Representa el formulario para editar los datos del perfil.
+-->
+
 <script setup lang="ts">
 import { ref } from 'vue'
 import MenuLateral from './MenuLateral.vue'

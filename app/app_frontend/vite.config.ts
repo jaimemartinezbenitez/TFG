@@ -1,3 +1,8 @@
+// Autor: Jaime Martínez Benítez
+// TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+// Archivo: "vite.config.ts"
+// Descripcion: Configura Vite para compilar y servir el frontend.
+
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'

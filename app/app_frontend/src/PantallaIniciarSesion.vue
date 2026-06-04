@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaIniciarSesion.vue"
+Descripcion: Representa el formulario de inicio de sesión.
+-->
+
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { AuthMode, LoginForm } from './types'
@@ -50,7 +57,9 @@ const showPassword = ref(false)
                 <span class="eye-icon" :class="{ hidden: !showPassword }" aria-hidden="true"></span>
               </button>
             </div>
-            <a class="forgot-link" href="#" @click.prevent>¿Olvidaste la contraseña?</a>
+            <a class="forgot-link" href="#" @click.prevent="emit('switch-mode', 'password-reset')">
+              ¿Olvidaste la contraseña?
+            </a>
           </div>
         </div>
 

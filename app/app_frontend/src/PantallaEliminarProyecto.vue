@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaEliminarProyecto.vue"
+Descripcion: Representa la confirmación de eliminación de proyectos.
+-->
+
 <script setup lang="ts">
 import MenuLateral from './MenuLateral.vue'
 import type { Project } from './types'

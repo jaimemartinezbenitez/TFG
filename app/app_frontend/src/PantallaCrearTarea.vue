@@ -1,10 +1,18 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaCrearTarea.vue"
+Descripcion: Representa el formulario para crear tareas.
+-->
+
 <script setup lang="ts">
 import MenuLateral from './MenuLateral.vue'
-import type { Project, TaskForm } from './types'
+import type { CollaboratorRole, Project, TaskForm, UserProfile } from './types'
 
 const props = defineProps<{
   form: TaskForm
   projects: Project[]
+  users: UserProfile[]
   initials: string
   loading: boolean
   message: string
@@ -16,6 +24,12 @@ const emit = defineEmits<{
   submit: []
   cancel: []
 }>()
+
+function roleLabel(role: CollaboratorRole) {
+  if (role === 'ADMIN') return 'Administrador'
+  if (role === 'EDITOR') return 'Editor'
+  return 'Lector'
+}
 </script>
 
 <template>
@@ -31,15 +45,25 @@ const emit = defineEmits<{
       <h2>Nueva tarea</h2>
 
       <form class="task-form" @submit.prevent="emit('submit')">
-        <div class="left-fields">
+        <section class="form-section main-fields" aria-label="Datos principales de la tarea">
+          <div class="section-title">
+            <span>01</span>
+            <strong>Datos de la tarea</strong>
+          </div>
+
           <label for="taskTitle">Título</label>
           <input id="taskTitle" v-model.trim="props.form.title" required maxlength="50" placeholder="Nombre de la tarea" />
 
           <label for="taskDescription">Descripción</label>
           <textarea id="taskDescription" v-model.trim="props.form.description" placeholder="Describe la tarea..."></textarea>
-        </div>
+        </section>
 
-        <div class="right-fields">
+        <section class="form-section planning-fields" aria-label="Planificación de la tarea">
+          <div class="section-title">
+            <span>02</span>
+            <strong>Planificación</strong>
+          </div>
+
           <label for="taskDate">Fecha límite</label>
           <input id="taskDate" v-model="props.form.due_date" type="date" />
 
@@ -57,7 +81,34 @@ const emit = defineEmits<{
               {{ project.name }}
             </option>
           </select>
-        </div>
+        </section>
+
+        <section class="form-section collaboration-fields" aria-label="Colaboración de la tarea">
+          <div class="section-title">
+            <span>03</span>
+            <strong>Colaboración</strong>
+          </div>
+
+          <label for="taskCollaborator">Colaborador</label>
+          <input
+            id="taskCollaborator"
+            v-model.trim="props.form.collaboratorIdentifier"
+            list="taskCollaboratorUsers"
+            placeholder="Usuario o correo"
+          />
+          <datalist id="taskCollaboratorUsers">
+            <option v-for="user in props.users" :key="user.id" :value="user.email">
+              {{ user.username }}
+            </option>
+          </datalist>
+
+          <label for="taskCollaboratorRole">Rol</label>
+          <select id="taskCollaboratorRole" v-model="props.form.collaboratorRole">
+            <option value="READER">{{ roleLabel('READER') }}</option>
+            <option value="EDITOR">{{ roleLabel('EDITOR') }}</option>
+            <option value="ADMIN">{{ roleLabel('ADMIN') }}</option>
+          </select>
+        </section>
 
         <p v-if="props.message" class="form-message">{{ props.message }}</p>
 
@@ -87,7 +138,7 @@ const emit = defineEmits<{
 .task-form-content {
   position: relative;
   min-width: 0;
-  padding: 62px 40px 74px 34px;
+  padding: 62px 52px 74px 34px;
 }
 
 .avatar-button {
@@ -126,17 +177,57 @@ h2 {
 }
 
 .task-form {
-  max-width: 660px;
+  max-width: 920px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.95fr);
-  gap: 28px 112px;
+  grid-template-columns: minmax(300px, 1.1fr) minmax(250px, 0.85fr);
+  gap: 20px 34px;
 }
 
-.left-fields,
-.right-fields {
+.form-section {
   display: grid;
   align-content: start;
   gap: 10px;
+  padding: 16px 18px 18px;
+  border: 1.5px solid #a6f1df;
+  border-radius: 8px;
+  background: #fbfffe;
+}
+
+.main-fields {
+  min-height: 278px;
+  grid-row: span 2;
+}
+
+.planning-fields,
+.collaboration-fields {
+  min-height: 0;
+}
+
+.collaboration-fields {
+  grid-column: 2;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.section-title span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #715cff;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.section-title strong {
+  font-size: 1.08rem;
 }
 
 label {
@@ -219,6 +310,12 @@ select {
   .task-form {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  .main-fields,
+  .collaboration-fields {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .form-actions {

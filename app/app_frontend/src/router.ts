@@ -1,3 +1,8 @@
+// Autor: Jaime Martínez Benítez
+// TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+// Archivo: "router.ts"
+// Descripcion: Define las rutas del frontend y sus redirecciones.
+
 import { createRouter, createWebHistory, type RouteLocation, type RouteRecordRaw } from 'vue-router'
 import VentanaPrincipal from './VentanaPrincipal.vue'
 
@@ -7,6 +12,7 @@ const routes: RouteRecordRaw[] = [
   // Auth: mismas acciones que /api/auth/... pero sin el prefijo /api/auth.
   { path: '/login', name: 'login', component: VentanaPrincipal },
   { path: '/register', name: 'register', component: VentanaPrincipal },
+  { path: '/password-reset', name: 'password-reset', component: VentanaPrincipal },
   { path: '/profile', name: 'profile', component: VentanaPrincipal },
   { path: '/profile/edit', name: 'edit-profile', component: VentanaPrincipal },
 
@@ -30,6 +36,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/statistics', name: 'statistics', component: VentanaPrincipal },
   { path: '/statistics/dashboard', redirect: '/statistics' },
   { path: '/achievements', name: 'achievements', component: VentanaPrincipal },
+  { path: '/export', name: 'export', component: VentanaPrincipal },
   { path: '/productivity-sessions', name: 'techniques', component: VentanaPrincipal },
   { path: '/productivity-sessions/pomodoro', name: 'technique-pomodoro', component: VentanaPrincipal },
   { path: '/productivity-sessions/pomodoro/break', name: 'technique-pomodoro-break', component: VentanaPrincipal },
@@ -41,12 +48,14 @@ const routes: RouteRecordRaw[] = [
 
   // Compatibilidad con las rutas antiguas en español.
   { path: '/registro', redirect: '/register' },
+  { path: '/recuperar-contrasena', redirect: '/password-reset' },
   { path: '/inicio', redirect: '/dashboard' },
   { path: '/perfil', redirect: '/profile' },
   { path: '/perfil/editar', redirect: '/profile/edit' },
   { path: '/calendario', redirect: '/calendar' },
   { path: '/estadisticas', redirect: '/statistics' },
   { path: '/logros', redirect: '/achievements' },
+  { path: '/exportar', redirect: '/export' },
   { path: '/tecnicas', redirect: '/productivity-sessions' },
   { path: '/tecnicas/pomodoro', redirect: '/productivity-sessions/pomodoro' },
   { path: '/tecnicas/pomodoro/descanso', redirect: '/productivity-sessions/pomodoro/break' },

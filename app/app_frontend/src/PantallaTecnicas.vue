@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaTecnicas.vue"
+Descripcion: Representa el selector e historial de técnicas de productividad.
+-->
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'

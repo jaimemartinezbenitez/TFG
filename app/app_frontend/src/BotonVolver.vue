@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "BotonVolver.vue"
+Descripcion: Representa el botón reutilizable para volver a la pantalla anterior.
+-->
+
 <script setup lang="ts">
 const emit = defineEmits<{
   click: []

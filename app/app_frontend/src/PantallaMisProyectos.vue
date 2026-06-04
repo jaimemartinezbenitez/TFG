@@ -1,3 +1,10 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaMisProyectos.vue"
+Descripcion: Representa el listado general de proyectos del usuario.
+-->
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import MenuLateral from './MenuLateral.vue'
@@ -36,6 +43,9 @@ const inProgressProjects = computed(() =>
   }).length,
 )
 const completedProjects = computed(() => props.projects.filter((project) => progress(project) >= 100).length)
+const totalProjectTasks = computed(() =>
+  props.projects.reduce((total, project) => total + (project.tasks_count || 0), 0),
+)
 
 function progress(project: Project) {
   return project.progress_percentage ?? 0
@@ -59,6 +69,16 @@ function collaboratorsLabel(project: Project) {
   if (names.length <= 2) return names.join(', ')
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`
 }
+
+function dateRange(project: Project) {
+  return `${formatDate(project.start_date)} · ${formatDate(project.end_date)}`
+}
+
+function accessLabel(project: Project) {
+  if (project.is_owner) return 'Propio'
+  if (project.collaboration_role) return `Compartido · ${project.collaboration_role}`
+  return 'Proyecto'
+}
 </script>
 
 <template>
@@ -69,12 +89,7 @@ function collaboratorsLabel(project: Project) {
       <header class="projects-header">
         <div>
           <h1>Mis proyectos</h1>
-          <div class="project-stats" aria-label="Resumen de proyectos">
-            <span>Todos <strong class="accent">{{ totalProjects }}</strong></span>
-            <span>Pendientes <strong class="danger">{{ pendingProjects }}</strong></span>
-            <span>En progreso <strong class="warning">{{ inProgressProjects }}</strong></span>
-            <span>Completados <strong class="success">{{ completedProjects }}</strong></span>
-          </div>
+          <p>Controla el avance, las fechas y los colaboradores.</p>
         </div>
         <div class="header-actions">
           <button class="avatar-button" type="button" title="Ver perfil" @click="emit('open-profile')">
@@ -90,26 +105,60 @@ function collaboratorsLabel(project: Project) {
       <p v-if="props.message" class="project-message">{{ props.message }}</p>
       <p v-else-if="props.loading" class="project-message">Cargando proyectos...</p>
 
+      <div class="project-stats" aria-label="Resumen de proyectos">
+        <article>
+          <span>Total</span>
+          <strong class="accent">{{ totalProjects }}</strong>
+        </article>
+        <article>
+          <span>Pendientes</span>
+          <strong class="danger">{{ pendingProjects }}</strong>
+        </article>
+        <article>
+          <span>En progreso</span>
+          <strong class="warning">{{ inProgressProjects }}</strong>
+        </article>
+        <article>
+          <span>Completados</span>
+          <strong class="success">{{ completedProjects }}</strong>
+        </article>
+        <article>
+          <span>Tareas</span>
+          <strong class="accent">{{ totalProjectTasks }}</strong>
+        </article>
+      </div>
+
+      <div class="project-table-shell">
       <div class="project-table" role="table" aria-label="Listado de proyectos">
         <div class="project-row project-row-head" role="row">
           <span></span>
           <strong>Proyecto</strong>
-          <strong>PORCENTAJE</strong>
-          <strong>Colaborador</strong>
-          <strong>Fecha</strong>
+          <strong>Progreso</strong>
+          <strong>Tareas</strong>
+          <strong>Fechas</strong>
           <span></span>
         </div>
 
         <div v-for="project in orderedProjects" :key="project.id" class="project-row" role="row">
-          <span class="project-check" aria-hidden="true"></span>
-          <button class="project-title-button" type="button" @click="emit('view-project', project)">
-            {{ project.name }}
-          </button>
-          <strong :class="progressClass(progress(project))">{{ progress(project) }}%</strong>
-          <span class="collaborator-cell" :class="{ empty: !collaboratorsLabel(project) }">
-            {{ collaboratorsLabel(project) || 'Sin colaboradores' }}
-          </span>
-          <time>{{ formatDate(project.end_date) }}</time>
+          <span class="project-state-dot" :class="progressClass(progress(project))" aria-hidden="true"></span>
+          <div class="project-main-cell">
+            <button class="project-title-button" type="button" @click="emit('view-project', project)">
+              {{ project.name }}
+            </button>
+            <small>{{ project.description || 'Sin descripcion' }}</small>
+            <div class="project-meta">
+              <span>{{ accessLabel(project) }}</span>
+              <span>{{ collaboratorsLabel(project) || 'Sin colaboradores' }}</span>
+            </div>
+          </div>
+          <div class="progress-cell">
+            <strong :class="progressClass(progress(project))">{{ progress(project) }}%</strong>
+            <span class="progress-track">
+              <span class="progress-fill" :class="progressClass(progress(project))" :style="{ width: `${progress(project)}%` }"></span>
+            </span>
+          </div>
+          <span class="tasks-count">{{ project.completed_tasks_count || 0 }} / {{ project.tasks_count || 0 }}</span>
+          <time>{{ dateRange(project) }}</time>
           <div class="row-actions">
             <button v-if="project.can_edit" class="icon-button" type="button" title="Editar proyecto" @click="emit('edit-project', project)">
               <img src="/icono-editar.png" alt="" aria-hidden="true" />
@@ -121,6 +170,7 @@ function collaboratorsLabel(project: Project) {
         </div>
 
         <p v-if="!props.loading && !orderedProjects.length" class="empty-state">Aun no tienes proyectos.</p>
+      </div>
       </div>
     </section>
   </section>
@@ -156,17 +206,38 @@ function collaboratorsLabel(project: Project) {
   line-height: 1;
 }
 
+.projects-header p {
+  margin: 0;
+  color: #6d7180;
+  font-size: 1.04rem;
+}
+
 .project-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 28px;
-  align-items: center;
-  font-size: 0.88rem;
+  width: min(100%, 980px);
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(118px, 1fr));
+  gap: 12px;
+}
+
+.project-stats article {
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fbfffe;
+  padding: 12px 14px;
+}
+
+.project-stats span {
+  color: #6d7180;
+  font-size: 0.82rem;
 }
 
 .project-stats strong {
-  margin-left: 10px;
-  font-size: 1.2rem;
+  font-size: 1.55rem;
 }
 
 .header-actions {
@@ -223,38 +294,50 @@ function collaboratorsLabel(project: Project) {
   margin: 18px 0 0;
 }
 
+.project-table-shell {
+  width: min(100%, 1180px);
+  margin-top: 22px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
 .project-table {
   width: 100%;
-  margin-top: 12px;
 }
 
 .project-row {
-  min-height: 43px;
+  min-height: 86px;
   display: grid;
-  grid-template-columns: 34px minmax(240px, 1fr) minmax(130px, 0.3fr) minmax(180px, 0.42fr) minmax(120px, 0.28fr) 112px;
+  grid-template-columns: 34px minmax(300px, 1fr) minmax(170px, 0.35fr) 100px minmax(170px, 0.35fr) 104px;
+  gap: 12px;
   align-items: center;
   border-bottom: 1px solid #75ddcb;
+  padding: 0 18px;
 }
 
 .project-row-head {
-  min-height: 28px;
+  min-height: 42px;
+  background: #fbfffe;
 }
 
 .project-row-head strong {
-  text-align: center;
-  font-size: 1rem;
-}
-
-.project-row-head strong:first-of-type {
+  color: #565b6a;
   text-align: left;
+  font-size: 0.82rem;
+  text-transform: uppercase;
 }
 
-.project-check {
-  width: 20px;
-  height: 20px;
-  border: 1.5px solid #00a8a8;
-  border-radius: 4px;
-  background: #fff;
+.project-row-head strong:nth-of-type(n + 2) {
+  text-align: center;
+}
+
+.project-state-dot {
+  width: 16px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .project-title-button {
@@ -267,12 +350,69 @@ function collaboratorsLabel(project: Project) {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  font-size: 1rem;
+  font-weight: 800;
 }
 
-.project-row strong,
-.collaborator-cell,
+.project-main-cell {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.project-main-cell small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8d91a1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.project-meta {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-meta span {
+  max-width: 220px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d5f6ef;
+  border-radius: 999px;
+  color: #715cff;
+  padding: 3px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.progress-cell {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.progress-cell strong,
+.tasks-count,
 .project-row time {
   text-align: center;
+}
+
+.progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef1f6;
+}
+
+.progress-fill {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: currentColor;
 }
 
 .accent {
@@ -289,19 +429,6 @@ function collaboratorsLabel(project: Project) {
 
 .success {
   color: #00bf63;
-}
-
-.collaborator-cell {
-  min-width: 0;
-  overflow: hidden;
-  color: #715cff;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.collaborator-cell.empty {
-  color: #9a9daa;
-  font-weight: 500;
 }
 
 .row-actions {
@@ -351,7 +478,11 @@ function collaboratorsLabel(project: Project) {
   }
 
   .project-row {
-    min-width: 940px;
+    min-width: 900px;
+  }
+
+  .project-stats {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,9 +1,17 @@
+<!--
+Autor: Jaime Martínez Benítez
+TFG: Diseño y desarrollo de una plataforma de productividad personal inteligente con gestión de tareas, análisis y colaboración
+Archivo: "PantallaCrearProyecto.vue"
+Descripcion: Representa el formulario para crear proyectos.
+-->
+
 <script setup lang="ts">
 import MenuLateral from './MenuLateral.vue'
-import type { ProjectForm } from './types'
+import type { CollaboratorRole, ProjectForm, UserProfile } from './types'
 
 const props = defineProps<{
   form: ProjectForm
+  users: UserProfile[]
   initials: string
   loading: boolean
   message: string
@@ -16,6 +24,12 @@ const emit = defineEmits<{
   submit: []
   cancel: []
 }>()
+
+function roleLabel(role: CollaboratorRole) {
+  if (role === 'ADMIN') return 'Administrador'
+  if (role === 'EDITOR') return 'Editor'
+  return 'Lector'
+}
 </script>
 
 <template>
@@ -31,21 +45,58 @@ const emit = defineEmits<{
       <h2>{{ props.mode === 'create' ? 'Nuevo proyecto' : props.form.name || 'Proyecto' }}</h2>
 
       <form class="project-form" @submit.prevent="emit('submit')">
-        <div class="left-fields">
+        <section class="form-section main-fields" aria-label="Datos principales del proyecto">
+          <div class="section-title">
+            <span>01</span>
+            <strong>Datos del proyecto</strong>
+          </div>
+
           <label for="projectName">Título</label>
           <input id="projectName" v-model.trim="props.form.name" required maxlength="80" placeholder="Nombre del proyecto" />
 
           <label for="projectDescription">Descripción</label>
           <textarea id="projectDescription" v-model.trim="props.form.description" placeholder="Describe el proyecto..."></textarea>
-        </div>
+        </section>
 
-        <div class="right-fields">
+        <section class="form-section date-fields" aria-label="Fechas del proyecto">
+          <div class="section-title">
+            <span>02</span>
+            <strong>Fechas</strong>
+          </div>
+
           <label for="projectStart">Fecha inicio</label>
           <input id="projectStart" v-model="props.form.start_date" type="date" />
 
           <label for="projectEnd">Fecha finalización</label>
           <input id="projectEnd" v-model="props.form.end_date" type="date" />
-        </div>
+        </section>
+
+        <section v-if="props.mode === 'create'" class="form-section collaboration-fields" aria-label="Colaboración del proyecto">
+          <div class="section-title">
+            <span>03</span>
+            <strong>Colaboración</strong>
+          </div>
+
+          <label for="projectCollaborator">Colaborador</label>
+          <input
+            id="projectCollaborator"
+            v-model.trim="props.form.collaboratorIdentifier"
+            list="projectCollaboratorUsers"
+            placeholder="Usuario o correo"
+          />
+          <datalist id="projectCollaboratorUsers">
+            <option v-for="user in props.users" :key="user.id" :value="user.email">
+              {{ user.username }}
+            </option>
+          </datalist>
+
+          <label for="projectCollaboratorRole">Rol</label>
+          <select id="projectCollaboratorRole" v-model="props.form.collaboratorRole">
+            <option value="READER">{{ roleLabel('READER') }}</option>
+            <option value="EDITOR">{{ roleLabel('EDITOR') }}</option>
+            <option value="ADMIN">{{ roleLabel('ADMIN') }}</option>
+          </select>
+        </section>
 
         <p v-if="props.message" class="form-message">{{ props.message }}</p>
 
@@ -75,7 +126,7 @@ const emit = defineEmits<{
 .project-form-content {
   position: relative;
   min-width: 0;
-  padding: 62px 40px 74px 34px;
+  padding: 62px 52px 74px 34px;
 }
 
 .avatar-button {
@@ -114,17 +165,57 @@ h2 {
 }
 
 .project-form {
-  max-width: 660px;
+  max-width: 920px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.95fr);
-  gap: 28px 112px;
+  grid-template-columns: minmax(300px, 1.1fr) minmax(250px, 0.85fr);
+  gap: 20px 34px;
 }
 
-.left-fields,
-.right-fields {
+.form-section {
   display: grid;
   align-content: start;
   gap: 10px;
+  padding: 16px 18px 18px;
+  border: 1.5px solid #a6f1df;
+  border-radius: 8px;
+  background: #fbfffe;
+}
+
+.main-fields {
+  min-height: 278px;
+  grid-row: span 2;
+}
+
+.date-fields,
+.collaboration-fields {
+  min-height: 0;
+}
+
+.collaboration-fields {
+  grid-column: 2;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.section-title span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #715cff;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.section-title strong {
+  font-size: 1.08rem;
 }
 
 label {
@@ -132,7 +223,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 2px solid #7161ff;
   border-radius: 8px;
@@ -140,7 +232,8 @@ textarea {
   outline: none;
 }
 
-input {
+input,
+select {
   height: 30px;
   padding: 0 8px;
 }
@@ -155,6 +248,10 @@ input::placeholder,
 textarea::placeholder {
   color: #b8bac4;
   font-style: italic;
+}
+
+select {
+  cursor: pointer;
 }
 
 .form-message {
@@ -200,6 +297,12 @@ textarea::placeholder {
   .project-form {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  .main-fields,
+  .collaboration-fields {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .form-actions {
