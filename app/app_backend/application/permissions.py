@@ -14,11 +14,23 @@ class IsOwnerOrReadOnlyCollaborator(permissions.BasePermission):
             return True
 
         if obj.__class__.__name__ == 'Task':
-            collaboration = Collaboration.objects.filter(user=request.user, task=obj, status=CollaborationStatus.ACCEPTED).first()
+            collaboration = Collaboration.objects.filter(
+                user=request.user,
+                task=obj,
+                status=CollaborationStatus.ACCEPTED,
+            ).first()
             if not collaboration and obj.project_id:
-                collaboration = Collaboration.objects.filter(user=request.user, project=obj.project, status=CollaborationStatus.ACCEPTED).first()
+                collaboration = Collaboration.objects.filter(
+                    user=request.user,
+                    project=obj.project,
+                    status=CollaborationStatus.ACCEPTED,
+                ).first()
         elif obj.__class__.__name__ == 'Project':
-            collaboration = Collaboration.objects.filter(user=request.user, project=obj, status=CollaborationStatus.ACCEPTED).first()
+            collaboration = Collaboration.objects.filter(
+                user=request.user,
+                project=obj,
+                status=CollaborationStatus.ACCEPTED,
+            ).first()
         else:
             return False
 

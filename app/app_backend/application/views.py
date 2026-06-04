@@ -178,6 +178,7 @@ def assign_productivity_achievements(user):
                 created.append(achievement)
     return created
 
+
 def generate_task_reminders(user):
     today = timezone.localdate()
     thresholds = {
@@ -247,7 +248,6 @@ def parse_date_range(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
     return start_date, end_date, None
-
 
 
 def period_task_queryset(user, start_date, end_date):
@@ -818,6 +818,7 @@ class StatisticViewSet(viewsets.ModelViewSet):
             visual_data=visual_data,
         )
         return Response(visual_data)
+
 
 class ExportViewSet(viewsets.ModelViewSet):
     serializer_class = ExportSerializer

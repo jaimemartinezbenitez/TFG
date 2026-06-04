@@ -1,0 +1,20 @@
+# Entornos y dependencias
+app/app_env/
+app/app_frontend/node_modules/
+
+# Builds y cobertura
+app/app_frontend/dist/
+app/app_backend/.coverage
+coverage.xml
+htmlcov/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs y sistema
+*.log
+.DS_Store
