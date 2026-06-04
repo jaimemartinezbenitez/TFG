@@ -59,24 +59,26 @@ User = get_user_model()
 class ApplicationModelTest(TestCase):
     """Pruebas directas sobre modelos y señales principales."""
 
+    # Test 01
     @tag("backend")
     def test_user_profile_is_created_with_standard_role(self):
         user = User.objects.create_user(
             username="jaime",
-            email="jaime@example.com",
-            password="StrongPass1",
+            email="jaime@mail.com",
+            password="Contra321",
         )
 
         self.assertTrue(UserProfile.objects.filter(user=user).exists())
         self.assertEqual(user.profile.role, "STANDARD")
         self.assertIn("jaime", str(user.profile))
 
+    # Test 02
     @tag("backend")
     def test_model_string_representations(self):
         user = User.objects.create_user(
-            username="owner",
-            email="owner@example.com",
-            password="StrongPass1",
+            username="pepe",
+            email="pepe@mail.com",
+            password="Contra123",
         )
         project = Project.objects.create(owner=user, name="TFG")
         task = Task.objects.create(owner=user, project=project, title="Escribir memoria")
@@ -99,8 +101,8 @@ class ApplicationModelTest(TestCase):
         )
         collaboration = Collaboration.objects.create(
             user=User.objects.create_user(
-                username="reader",
-                email="reader@example.com",
+                username="lector",
+                email="lector@mail.com",
                 password="StrongPass1",
             ),
             owner=user,
@@ -112,7 +114,7 @@ class ApplicationModelTest(TestCase):
 
         self.assertEqual(str(project), "TFG")
         self.assertEqual(str(task), "Escribir memoria")
-        self.assertIn("owner", str(session))
+        self.assertIn("pepe", str(session))
         self.assertEqual(str(achievement), "Logro")
         self.assertIn("Metricas de", str(metric))
         self.assertIn("BAR", str(statistic))
@@ -133,6 +135,7 @@ class AuthApiTest(APITestCase):
             password=self.password,
         )
 
+    # Test 03
     @tag("backend")
     def test_register_creates_user_and_profile(self):
         response = self.client.post(
@@ -150,6 +153,7 @@ class AuthApiTest(APITestCase):
         self.assertTrue(user.check_password("StrongPass1"))
         self.assertTrue(UserProfile.objects.filter(user=user).exists())
 
+    # Test 04
     @tag("backend")
     def test_register_rejects_duplicate_email(self):
         response = self.client.post(
@@ -165,6 +169,7 @@ class AuthApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("email", response.data)
 
+    # Test 05
     @tag("backend")
     def test_login_accepts_email_and_returns_tokens(self):
         response = self.client.post(
@@ -177,6 +182,7 @@ class AuthApiTest(APITestCase):
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
 
+    # Test 06
     @tag("backend")
     def test_profile_can_be_updated_and_user_list_excludes_current_user(self):
         other = User.objects.create_user(
@@ -207,6 +213,7 @@ class AuthApiTest(APITestCase):
         self.assertIn(other.id, returned_ids)
         self.assertNotIn(self.user.id, returned_ids)
 
+    # Test 07
     @tag("backend")
     def test_change_password_requires_current_password(self):
         self.client.force_authenticate(self.user)
@@ -228,6 +235,7 @@ class AuthApiTest(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("NewPass123"))
 
+    # Test 08
     @tag("backend")
     def test_password_reset_generates_token_and_changes_password(self):
         request_response = self.client.post(
@@ -260,6 +268,7 @@ class AuthApiTest(APITestCase):
         self.assertTrue(self.user.check_password("NewPass123"))
         self.assertFalse(self.user.check_password(self.password))
 
+    # Test 09
     @tag("backend")
     def test_password_reset_rejects_unknown_email_and_reused_token(self):
         unknown_response = self.client.post(
@@ -290,6 +299,7 @@ class AuthApiTest(APITestCase):
         self.assertEqual(first_confirm.status_code, status.HTTP_200_OK)
         self.assertEqual(second_confirm.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Test 10
     @tag("backend")
     def test_delete_account_requires_password(self):
         self.client.force_authenticate(self.user)
@@ -309,6 +319,7 @@ class AuthApiTest(APITestCase):
         self.assertEqual(ok_response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
 
+    # Test 11
     @tag("backend")
     def test_logout_rejects_invalid_refresh_token(self):
         self.client.force_authenticate(self.user)
@@ -321,6 +332,7 @@ class AuthApiTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Test 12
     @tag("backend")
     def test_logout_accepts_valid_refresh_token(self):
         self.client.force_authenticate(self.user)
@@ -356,6 +368,7 @@ class TaskProjectApiTest(APITestCase):
         )
         self.client.force_authenticate(self.owner)
 
+    # Test 13
     @tag("backend")
     def test_create_project_and_task_with_project_assignment(self):
         project_response = self.client.post(
@@ -387,6 +400,7 @@ class TaskProjectApiTest(APITestCase):
         self.assertEqual(task_response.data["project"], project_response.data["id"])
         self.assertEqual(Task.objects.get(id=task_response.data["id"]).owner, self.owner)
 
+    # Test 14
     @tag("backend")
     def test_project_rejects_end_date_before_start_date(self):
         response = self.client.post(
@@ -401,6 +415,7 @@ class TaskProjectApiTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Test 15
     @tag("backend")
     def test_user_cannot_assign_task_to_unowned_project_without_permission(self):
         foreign_project = Project.objects.create(owner=self.other, name="Privado")
@@ -419,6 +434,7 @@ class TaskProjectApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("project", response.data)
 
+    # Test 16
     @tag("backend")
     def test_task_complete_action_marks_task_and_creates_achievement(self):
         task = Task.objects.create(owner=self.owner, title="Cerrar capitulo")
@@ -433,6 +449,7 @@ class TaskProjectApiTest(APITestCase):
         )
         self.assertIn("new_achievements", response.data)
 
+    # Test 17
     @tag("backend")
     def test_task_move_requires_project_and_moves_to_owned_project(self):
         task = Task.objects.create(owner=self.owner, title="Mover tarea")
@@ -456,6 +473,7 @@ class TaskProjectApiTest(APITestCase):
         task.refresh_from_db()
         self.assertEqual(task.project, project)
 
+    # Test 18
     @tag("backend")
     def test_create_and_update_completed_tasks_assign_achievements(self):
         create_response = self.client.post(
@@ -479,6 +497,7 @@ class TaskProjectApiTest(APITestCase):
             Achievement.objects.filter(user=self.owner, name="Primeros pasos").exists()
         )
 
+    # Test 19
     @tag("backend")
     def test_collaboration_acceptance_grants_task_access(self):
         task = Task.objects.create(owner=self.owner, title="Tarea compartida")
@@ -513,6 +532,7 @@ class TaskProjectApiTest(APITestCase):
         task.refresh_from_db()
         self.assertEqual(task.description, "Editada por colaborador")
 
+    # Test 20
     @tag("backend")
     def test_reader_collaborator_can_read_but_cannot_edit_task(self):
         task = Task.objects.create(owner=self.owner, title="Solo lectura")
@@ -538,6 +558,7 @@ class TaskProjectApiTest(APITestCase):
         self.assertFalse(detail_response.data["can_edit"])
         self.assertEqual(patch_response.status_code, status.HTTP_403_FORBIDDEN)
 
+    # Test 21
     @tag("backend")
     def test_project_collaboration_grants_task_access_and_reject_flow(self):
         project = Project.objects.create(owner=self.owner, name="Compartido")
@@ -580,6 +601,7 @@ class TaskProjectApiTest(APITestCase):
         self.assertNotIn(task.id, {item["id"] for item in list_response.data})
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
 
+    # Test 22
     @tag("backend")
     def test_collaboration_rejects_self_invitation_duplicate_and_non_owner(self):
         task = Task.objects.create(owner=self.owner, title="Compartir")
@@ -632,6 +654,7 @@ class TaskProjectApiTest(APITestCase):
         )
         self.assertEqual(non_owner_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Test 23
     @tag("backend")
     def test_collaboration_filters_and_forbidden_accept_reject(self):
         project = Project.objects.create(owner=self.owner, name="Filtro")
@@ -657,6 +680,7 @@ class TaskProjectApiTest(APITestCase):
         self.assertEqual(accept_response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(reject_response.status_code, status.HTTP_403_FORBIDDEN)
 
+    # Test 24
     @tag("backend")
     def test_calendar_returns_tasks_and_project_dates(self):
         project = Project.objects.create(
@@ -683,6 +707,7 @@ class TaskProjectApiTest(APITestCase):
         self.assertIn(("project_start", project.id), item_keys)
         self.assertIn(("project_end", project.id), item_keys)
 
+    # Test 25
     @tag("backend")
     def test_calendar_rejects_invalid_view(self):
         response = self.client.get("/api/calendar/?view=year")
@@ -702,6 +727,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
+    # Test 26
     @tag("backend")
     def test_finish_productivity_session_registers_metrics_and_achievement(self):
         create_response = self.client.post(
@@ -744,6 +770,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
             ).exists()
         )
 
+    # Test 27
     @tag("backend")
     def test_dashboard_returns_summary_and_focus_series(self):
         Task.objects.create(owner=self.user, title="Completada", status=TaskStatus.COMPLETED)
@@ -764,6 +791,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.data["summary"]["registered_time"], 60)
         self.assertEqual(response.data["summary"]["effective_minutes"], 50)
 
+    # Test 28
     @tag("backend")
     def test_dashboard_day_and_month_views_cover_focus_buckets(self):
         selected_date = timezone.localdate()
@@ -794,6 +822,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(day_response.data["focus_series"][0]["short_label"], "00h")
         self.assertGreaterEqual(len(month_response.data["focus_series"]), 28)
 
+    # Test 29
     @tag("backend")
     def test_dashboard_uses_task_progress_when_no_registered_time(self):
         Task.objects.create(owner=self.user, title="Hecha", status=TaskStatus.COMPLETED)
@@ -804,6 +833,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["summary"]["productivity_percentage"], 50)
 
+    # Test 30
     @tag("backend")
     def test_dashboard_empty_period_uses_zero_progress(self):
         response = self.client.get("/api/statistics/dashboard/?view=week")
@@ -811,6 +841,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["summary"]["productivity_percentage"], 0)
 
+    # Test 31
     @tag("backend")
     def test_dashboard_rejects_invalid_view(self):
         response = self.client.get("/api/statistics/dashboard/?view=year")
@@ -818,6 +849,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("view", response.data)
 
+    # Test 32
     @tag("backend")
     def test_metric_calculate_creates_metric_and_statistic_crud_is_user_scoped(self):
         other = User.objects.create_user(
@@ -864,6 +896,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(own_statistic_response.status_code, status.HTTP_201_CREATED)
         self.assertNotIn(foreign_statistic.id, {item["id"] for item in list_response.data})
 
+    # Test 33
     @tag("backend")
     def test_metric_list_is_user_scoped(self):
         own_metric = Metric.objects.create(user=self.user, tasks_created=2)
@@ -878,6 +911,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual({item["id"] for item in response.data}, {own_metric.id})
 
+    # Test 34
     @tag("backend")
     def test_productivity_session_validates_technique_configuration(self):
         bad_response = self.client.post(
@@ -913,6 +947,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(fifty_two_response.data["configuration"]["work_minutes"], 52)
         self.assertEqual(fifty_two_response.data["configuration"]["break_minutes"], 17)
 
+    # Test 35
     @tag("backend")
     def test_completed_productivity_session_on_create_assigns_achievement(self):
         response = self.client.post(
@@ -936,6 +971,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
             ).exists()
         )
 
+    # Test 36
     @tag("backend")
     def test_finish_productivity_session_rejects_invalid_status_and_negative_values(self):
         productivity_session = ProductivitySession.objects.create(
@@ -958,6 +994,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(invalid_status_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(negative_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Test 37
     @tag("backend")
     def test_finish_productivity_session_rejects_non_integer_and_bad_config(self):
         productivity_session = ProductivitySession.objects.create(
@@ -980,6 +1017,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(non_integer_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(bad_config_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Test 38
     @tag("backend")
     def test_finish_productivity_session_autocalculates_zero_values(self):
         productivity_session = ProductivitySession.objects.create(
@@ -999,6 +1037,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertGreaterEqual(response.data["total_duration"], 0)
         self.assertEqual(response.data["effective_time"], response.data["total_duration"])
 
+    # Test 39
     @tag("backend")
     def test_achievements_endpoint_assigns_task_achievements(self):
         Task.objects.create(owner=self.user, title="Finalizada", status=TaskStatus.COMPLETED)
@@ -1008,6 +1047,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("Primeros pasos", {item["name"] for item in response.data})
 
+    # Test 40
     @tag("backend")
     def test_notifications_are_generated_and_marked_as_read(self):
         task = Task.objects.create(
@@ -1030,6 +1070,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         notification.refresh_from_db()
         self.assertTrue(notification.read)
 
+    # Test 41
     @tag("backend")
     def test_generate_reminders_creates_overdue_notification_once(self):
         Task.objects.create(
@@ -1047,6 +1088,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertIn("esta vencida", first_response.data["notifications"][0]["message"])
         self.assertEqual(second_response.data["created"], 0)
 
+    # Test 42
     @tag("backend")
     def test_notifications_are_scoped_to_authenticated_user(self):
         other = User.objects.create_user(
@@ -1062,6 +1104,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual({item["id"] for item in response.data}, {own_notification.id})
 
+    # Test 43
     @tag("backend")
     def test_notification_can_be_created_by_authenticated_user(self):
         response = self.client.post(
@@ -1075,6 +1118,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
             Notification.objects.filter(user=self.user, message="Creada desde API").exists()
         )
 
+    # Test 44
     @tag("backend")
     def test_export_csv_contains_user_metrics_and_project_filtered_tasks(self):
         selected_project = Project.objects.create(owner=self.user, name="Incluido")
@@ -1101,6 +1145,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertNotIn("Fuera", content)
         self.assertTrue(Export.objects.filter(user=self.user, format="CSV").exists())
 
+    # Test 45
     @tag("backend")
     def test_export_pdf_creates_pdf_and_export_records_are_user_scoped(self):
         other = User.objects.create_user(
@@ -1119,6 +1164,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertTrue(Export.objects.filter(user=self.user, format="PDF").exists())
         self.assertTrue(all(item["format"] == "PDF" for item in list_response.data))
 
+    # Test 46
     @tag("backend")
     def test_export_rejects_invalid_range_and_foreign_project(self):
         other = User.objects.create_user(
@@ -1140,6 +1186,7 @@ class ProductivityMetricsExportApiTest(APITestCase):
         self.assertEqual(foreign_project_response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn("project", foreign_project_response.data)
 
+    # Test 47
     @tag("backend")
     def test_export_uses_valid_date_range_and_pdf_returns_errors(self):
         today = timezone.localdate().isoformat()
@@ -1172,6 +1219,7 @@ class BackendBranchCoverageTest(TestCase):
         )
         self.request = SimpleNamespace(user=self.user)
 
+    # Test 48
     @tag("backend")
     def test_profile_serializer_rejects_duplicate_username_and_email(self):
         serializer = UserSerializer(instance=self.user)
@@ -1195,6 +1243,7 @@ class BackendBranchCoverageTest(TestCase):
         self.assertFalse(email_serializer.is_valid())
         self.assertIn("email", email_serializer.errors)
 
+    # Test 49
     @tag("backend")
     def test_project_serializer_collaboration_fields_for_guest_and_reader(self):
         project = Project.objects.create(owner=self.user, name="Proyecto interno")
@@ -1229,6 +1278,7 @@ class BackendBranchCoverageTest(TestCase):
         self.assertFalse(reader_serializer.data["can_edit"])
         self.assertEqual(reader_serializer.data["progress_percentage"], 50)
 
+    # Test 50
     @tag("backend")
     def test_task_serializer_without_request_and_project_collaboration(self):
         project = Project.objects.create(owner=self.user, name="Proyecto tarea")
@@ -1262,6 +1312,7 @@ class BackendBranchCoverageTest(TestCase):
         self.assertEqual(collaborator_serializer.data["collaboration_role"], "ADMIN")
         self.assertTrue(collaborator_serializer.data["can_edit"])
 
+    # Test 51
     @tag("backend")
     def test_collaboration_serializer_rejects_edge_cases(self):
         task = Task.objects.create(owner=self.user, title="Validaciones")
@@ -1353,6 +1404,7 @@ class BackendBranchCoverageTest(TestCase):
                 "project": project,
             })
 
+    # Test 52
     @tag("backend")
     def test_collaboration_serializer_update_excludes_current_instance(self):
         task = Task.objects.create(owner=self.user, title="Actualizar colaboracion")
@@ -1377,6 +1429,7 @@ class BackendBranchCoverageTest(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
+    # Test 53
     @tag("backend")
     def test_productivity_serializer_rejects_invalid_dates_and_config(self):
         now = timezone.now()
@@ -1408,6 +1461,7 @@ class BackendBranchCoverageTest(TestCase):
         self.assertFalse(invalid_config.is_valid())
         self.assertTrue(optional_cycles.is_valid(), optional_cycles.errors)
 
+    # Test 54
     @tag("backend")
     def test_permissions_without_collaboration_and_non_resource(self):
         permission = IsOwnerOrReadOnlyCollaborator()
@@ -1440,6 +1494,7 @@ class BackendBranchCoverageTest(TestCase):
             permission.has_object_permission(edit_request, None, editable_task)
         )
 
+    # Test 55
     @tag("backend")
     def test_viewset_get_querysets_return_empty_for_anonymous_user(self):
         anonymous_request = SimpleNamespace(
@@ -1464,6 +1519,7 @@ class BackendBranchCoverageTest(TestCase):
             viewset.request = anonymous_request
             self.assertFalse(viewset.get_queryset().exists())
 
+    # Test 56
     @tag("backend")
     def test_collaboration_queryset_filters_are_applied(self):
         task = Task.objects.create(owner=self.user, title="Filtrable")
@@ -1492,6 +1548,7 @@ class BackendBranchCoverageTest(TestCase):
 
         self.assertEqual(list(viewset.get_queryset()), [task_collaboration])
 
+    # Test 57
     @tag("backend")
     def test_authenticated_project_and_metric_querysets_return_user_data(self):
         project = Project.objects.create(owner=self.user, name="Visible")
@@ -1505,6 +1562,7 @@ class BackendBranchCoverageTest(TestCase):
         self.assertEqual(list(project_viewset.get_queryset()), [project])
         self.assertEqual(list(metric_viewset.get_queryset()), [metric])
 
+    # Test 58
     @tag("backend")
     def test_serializer_and_viewset_save_helpers(self):
         logout_serializer = LogoutSerializer(data={"refresh": "token-invalido"})
