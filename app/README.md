@@ -26,7 +26,20 @@ El backend está configurado con estos valores por defecto:
 - Host: localhost
 - Puerto: 5432
 
-Primero hay que asegurarse de que PostgreSQL está arrancado:
+En una máquina limpia de Ubuntu, primero instalar PostgreSQL si no está instalado:
+
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+```
+
+Comprobar que PostgreSQL está instalado:
+
+```bash
+psql --version
+```
+
+Arrancar PostgreSQL:
 
 ```bash
 sudo systemctl start postgresql
@@ -62,7 +75,13 @@ pg_lsclusters
 
 El estado debe aparecer como `online`.
 
-Después, entrar en PostgreSQL:
+Si no aparece ningún cluster, crear uno. Por ejemplo, en PostgreSQL 14:
+
+```bash
+sudo pg_createcluster 14 main --start
+```
+
+Después, entrar en PostgreSQL con el usuario administrador:
 
 ```bash
 sudo -u postgres psql
@@ -84,7 +103,7 @@ Importante: no pegar comandos `psql -c` con comillas incompletas.
 Si el terminal muestra el símbolo `>`, significa que una comilla se ha quedado abierta.
 En ese caso, cancelar con `Ctrl+C` y usar el método anterior entrando con `sudo -u postgres psql`.
 
-Si el usuario ya existe, usar dentro de PostgreSQL:
+Si el usuario ya existe, PostgreSQL mostrará un error. En ese caso, usar dentro de PostgreSQL:
 
 ```sql
 ALTER USER alumnodb WITH PASSWORD 'alumnodb';
