@@ -146,13 +146,17 @@ function developedByLabel(task: Task) {
 
       <template v-if="props.project">
         <header class="project-heading">
-          <h1>{{ props.project.name }}</h1>
-          <button v-if="props.canEdit" class="detail-icon" type="button" title="Editar proyecto" @click="emit('edit-project', props.project)">
-            <img src="/icono-editar.png" alt="" aria-hidden="true" />
-          </button>
-          <button v-if="props.canDelete" class="detail-icon" type="button" title="Eliminar proyecto" @click="emit('delete-project', props.project)">
-            <img src="/icono-borrar.png" alt="" aria-hidden="true" />
-          </button>
+          <div>
+            <h1>{{ props.project.name }}</h1>
+          </div>
+          <div class="project-actions" aria-label="Acciones del proyecto">
+            <button v-if="props.canEdit" class="text-action primary" type="button" @click="emit('edit-project', props.project)">
+              Editar
+            </button>
+            <button v-if="props.canDelete" class="text-action danger-action" type="button" @click="emit('delete-project', props.project)">
+              Eliminar
+            </button>
+          </div>
         </header>
         <p class="access-note">{{ props.accessMessage }}</p>
 
@@ -259,35 +263,40 @@ function developedByLabel(task: Task) {
 
         <section class="project-tasks">
           <h2>Tareas del proyecto</h2>
-          <div class="task-table" role="table" aria-label="Tareas del proyecto">
-            <div class="task-row task-row-head" role="row">
-              <span></span>
-              <strong>Tarea</strong>
-              <strong>PRIORIDAD</strong>
-              <strong>ESTADO</strong>
-              <strong>Creada por</strong>
-              <strong>Desarrollada por</strong>
-              <strong>Fecha</strong>
-              <span></span>
-            </div>
+          <div class="project-task-table-shell">
+            <div class="task-table" role="table" aria-label="Tareas del proyecto">
+              <div class="task-row task-row-head" role="row">
+                <span></span>
+                <strong>Tarea</strong>
+                <strong>PRIORIDAD</strong>
+                <strong>ESTADO</strong>
+                <strong>Creada por</strong>
+                <strong>Desarrollada por</strong>
+                <strong>Fecha</strong>
+                <strong>Acciones</strong>
+              </div>
 
-            <div v-for="task in props.tasks" :key="task.id" class="task-row" role="row">
-              <span class="task-check" aria-hidden="true"></span>
-              <button class="task-title-button" type="button" @click="emit('view-task', task)">
-                {{ task.title }}
-              </button>
-              <strong class="priority" :class="priorityClass(task.priority)">{{ priorityLabel(task.priority) }}</strong>
-              <strong class="task-status" :class="statusClass(task.status)">{{ statusLabel(task.status) }}</strong>
-              <span class="author-cell">{{ createdByLabel(task) }}</span>
-              <span class="author-cell">{{ developedByLabel(task) }}</span>
-              <time>{{ formatDate(task.due_date) }}</time>
-              <div class="row-actions">
-                <button v-if="task.can_edit" class="icon-button" type="button" title="Editar tarea" @click="emit('edit-task', task)">
-                  <img src="/icono-editar.png" alt="" aria-hidden="true" />
+              <div v-for="task in props.tasks" :key="task.id" class="task-row" role="row">
+                <span class="task-check" aria-hidden="true"></span>
+                <button class="task-title-button" type="button" @click="emit('view-task', task)">
+                  {{ task.title }}
                 </button>
-                <button v-if="task.is_owner" class="icon-button" type="button" title="Eliminar tarea" @click="emit('delete-task', task)">
-                  <img src="/icono-borrar.png" alt="" aria-hidden="true" />
-                </button>
+                <strong class="priority" :class="priorityClass(task.priority)">{{ priorityLabel(task.priority) }}</strong>
+                <strong class="task-status" :class="statusClass(task.status)">{{ statusLabel(task.status) }}</strong>
+                <span class="author-cell">{{ createdByLabel(task) }}</span>
+                <span class="author-cell">{{ developedByLabel(task) }}</span>
+                <time>{{ formatDate(task.due_date) }}</time>
+                <div class="row-actions">
+                  <button class="text-action" type="button" @click="emit('view-task', task)">
+                    Ver
+                  </button>
+                  <button v-if="task.can_edit" class="text-action primary" type="button" @click="emit('edit-task', task)">
+                    Editar
+                  </button>
+                  <button v-if="task.is_owner" class="text-action danger-action" type="button" @click="emit('delete-task', task)">
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -342,10 +351,11 @@ function developedByLabel(task: Task) {
 }
 
 .project-heading {
-  width: calc(100% - 80px);
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  width: min(100%, 1180px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
 }
 
 .project-heading h1 {
@@ -356,31 +366,16 @@ function developedByLabel(task: Task) {
   line-height: 1;
 }
 
-.detail-icon,
-.icon-button {
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-}
-
-.detail-icon {
-  width: 42px;
-  aspect-ratio: 1;
-  flex: 0 0 auto;
-}
-
-.detail-icon img {
-  width: 38px;
-  height: 38px;
-  display: block;
-  object-fit: contain;
+.project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
 }
 
 .access-note {
-  width: min(760px, calc(100% - 80px));
+  width: min(760px, 100%);
   margin: 6px 0 0;
   border-left: 4px solid #715cff;
   padding: 8px 12px;
@@ -390,7 +385,7 @@ function developedByLabel(task: Task) {
 }
 
 .project-detail-grid {
-  width: 100%;
+  width: min(100%, 1180px);
   margin-top: 8px;
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(480px, 1.35fr);
@@ -461,7 +456,7 @@ function developedByLabel(task: Task) {
 }
 
 .share-panel {
-  width: min(940px, 100%);
+  width: min(100%, 1180px);
   margin-top: 12px;
 }
 
@@ -645,20 +640,29 @@ function developedByLabel(task: Task) {
 }
 
 .project-tasks {
-  width: 100%;
+  width: min(100%, 1180px);
   margin-top: 10px;
 }
 
+.project-task-table-shell {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #75ddcb;
+  border-radius: 8px;
+}
+
 .task-table {
+  min-width: 1080px;
   width: 100%;
 }
 
 .task-row {
   min-height: 41px;
   display: grid;
-  grid-template-columns: 34px minmax(220px, 1.1fr) minmax(110px, 0.28fr) minmax(140px, 0.34fr) minmax(120px, 0.3fr) minmax(160px, 0.38fr) minmax(110px, 0.28fr) 112px;
+  grid-template-columns: 34px minmax(220px, 1.1fr) minmax(110px, 0.28fr) minmax(140px, 0.34fr) minmax(120px, 0.3fr) minmax(160px, 0.38fr) minmax(110px, 0.28fr) minmax(190px, 0.45fr);
   align-items: center;
   border-bottom: 1px solid #75ddcb;
+  padding: 0 10px;
 }
 
 .task-row-head {
@@ -739,20 +743,32 @@ function developedByLabel(task: Task) {
 
 .row-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: end;
-  gap: 8px;
+  gap: 6px;
 }
 
-.icon-button {
-  width: 38px;
-  aspect-ratio: 1;
+.text-action {
+  min-height: 26px;
+  border: 1.5px solid #d5f6ef;
+  border-radius: 999px;
+  background: #fff;
+  color: #34384a;
+  padding: 0 8px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.75rem;
 }
 
-.icon-button img {
-  width: 34px;
-  height: 34px;
-  display: block;
-  object-fit: contain;
+.text-action.primary {
+  border-color: #715cff;
+  color: #715cff;
+}
+
+.danger-action {
+  border-color: #ffb7bf;
+  color: #d91f2d;
 }
 
 .empty-state {
@@ -781,10 +797,6 @@ function developedByLabel(task: Task) {
   .detail-fields,
   .share-form {
     grid-template-columns: 1fr;
-  }
-
-  .task-table {
-    overflow-x: auto;
   }
 
   .task-row {
