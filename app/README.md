@@ -17,6 +17,55 @@ y Vue 3 en el frontend.
 - Node.js 20.19.0 o superior, o Node.js 22.12.0 o superior
 - npm
 
+## Instalación en una máquina virtual limpia
+Estas instrucciones están pensadas para Ubuntu recién instalado.
+
+Actualizar los paquetes del sistema:
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+Instalar herramientas básicas de Python y compilación:
+
+```bash
+sudo apt install -y python3 python3-pip python3-venv build-essential libpq-dev
+```
+
+Instalar PostgreSQL:
+
+```bash
+sudo apt install -y postgresql postgresql-contrib
+```
+
+Instalar Node.js y npm. La versión incluida por defecto en algunos Ubuntu puede ser antigua,
+por eso se recomienda instalar Node.js 22 desde NodeSource:
+
+```bash
+sudo apt install -y curl ca-certificates
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+Comprobar que las dependencias principales están instaladas:
+
+```bash
+python3 --version
+pip3 --version
+node --version
+npm --version
+psql --version
+```
+
+Si alguno de estos comandos no aparece, la dependencia correspondiente no se ha instalado correctamente.
+
+Después de descomprimir el proyecto, entrar en la carpeta principal de la aplicación:
+
+```bash
+cd app
+```
+
 ## Crear la base de datos PostgreSQL
 El backend está configurado con estos valores por defecto:
 
@@ -25,19 +74,6 @@ El backend está configurado con estos valores por defecto:
 - Contraseña: alumnodb
 - Host: localhost
 - Puerto: 5432
-
-En una máquina limpia de Ubuntu, primero instalar PostgreSQL si no está instalado:
-
-```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-```
-
-Comprobar que PostgreSQL está instalado:
-
-```bash
-psql --version
-```
 
 Arrancar PostgreSQL:
 
@@ -79,6 +115,24 @@ Si no aparece ningún cluster, crear uno. Por ejemplo, en PostgreSQL 14:
 
 ```bash
 sudo pg_createcluster 14 main --start
+```
+
+Si la versión no es la 14, usar la versión que aparezca en el comando:
+
+```bash
+pg_lsclusters
+```
+
+Por ejemplo, si aparece PostgreSQL 16 y el cluster está parado:
+
+```bash
+sudo pg_ctlcluster 16 main start
+```
+
+Si aparece PostgreSQL 16 y no existe ningún cluster:
+
+```bash
+sudo pg_createcluster 16 main --start
 ```
 
 Después, entrar en PostgreSQL con el usuario administrador:
@@ -150,6 +204,7 @@ GRANT ALL PRIVILEGES ON DATABASE app TO alumnodb;
 ```
 
 ## Arrancar el backend
+Desde la carpeta `app` del proyecto:
 
 ```bash
 python3 -m venv app_env
@@ -160,13 +215,25 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+El backend debe quedar arrancado en:
+
+```text
+http://localhost:8000
+```
+
 ## Arrancar el frontend
-En otra terminal:
+En otra terminal, desde la carpeta `app` del proyecto:
 
 ```bash
 cd app_frontend
 npm install
 npm run dev
+```
+
+El frontend debe quedar arrancado en:
+
+```text
+http://localhost:5173
 ```
 
 ## Acceso a la aplicación
@@ -219,3 +286,63 @@ npm run build-only
 - Las dependencias no se incluyen en el ZIP; se instalan con pip install y npm install.
 - El entorno virtual, node_modules, dist, cachés y archivos de cobertura están excluidos del proyecto.
 - La recuperación de contraseña no usa SMTP: genera un token temporal desde la propia interfaz.
+
+## Problemas frecuentes
+
+Si PostgreSQL no arranca y aparece un error parecido a:
+
+```text
+connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed
+```
+
+Comprobar el estado del servicio y de los clusters:
+
+```bash
+sudo systemctl status postgresql
+pg_lsclusters
+```
+
+Si el cluster aparece como `down`, arrancarlo:
+
+```bash
+sudo pg_ctlcluster 14 main start
+```
+
+Si no aparece ningún cluster, crearlo:
+
+```bash
+sudo pg_createcluster 14 main --start
+```
+
+Si el terminal muestra `>` después de pegar un comando de PostgreSQL, significa que se ha quedado una comilla abierta.
+Cancelar con `Ctrl+C` y volver a ejecutar los comandos entrando primero con:
+
+```bash
+sudo -u postgres psql
+```
+
+Si al conectar aparece:
+
+```text
+database "app" does not exist
+```
+
+Crear la base de datos:
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE DATABASE app OWNER alumnodb;
+GRANT ALL PRIVILEGES ON DATABASE app TO alumnodb;
+\q
+```
+
+Si al ejecutar `npm install` o `npm run dev` aparece un error de versión de Node, comprobar:
+
+```bash
+node --version
+```
+
+Debe ser Node.js 20.19.0 o superior, o Node.js 22.12.0 o superior.
