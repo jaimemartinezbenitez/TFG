@@ -88,7 +88,7 @@ function nextHour(value: string) {
       </button>
 
       <div class="blocking-header">
-        <h1>Time blocking</h1>
+        <h1>Time Blocking</h1>
         <p class="lead">Planifica tu día creando bloques con hora de inicio y fin</p>
         <p v-if="props.message" class="blocking-message">{{ props.message }}</p>
       </div>

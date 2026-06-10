@@ -140,7 +140,7 @@ function invitationType(collaboration: Collaboration) {
 function techniqueLabel(technique: ProductivityTechnique) {
   const labels = {
     POMODORO: 'Pomodoro',
-    TIME_BLOCKING: 'Time blocking',
+    TIME_BLOCKING: 'Time Blocking',
     FIFTY_TWO_SEVENTEEN: '52/17',
   }
   return labels[technique]
@@ -267,11 +267,11 @@ function notificationDate(value: string) {
                 <span class="task-title">{{ task.title }}</span>
                 <small>{{ task.statusLabel }}</small>
               </li>
-              <li v-if="!props.recentActivity.length" class="empty-row">Aun no hay actividad.</li>
+              <li v-if="!props.recentActivity.length" class="empty-row">Aún no hay actividad.</li>
             </ul>
           </section>
 
-          <section class="invitations-panel" aria-label="Invitaciones de colaboracion pendientes">
+          <section class="invitations-panel" aria-label="Invitaciones de colaboración pendientes">
             <h2>Invitaciones pendientes:</h2>
             <ul>
               <li v-for="collaboration in props.pendingCollaborations" :key="collaboration.id">
@@ -322,7 +322,7 @@ function notificationDate(value: string) {
                   <time>{{ durationLabel(session.effective_time) }} · {{ dateLabel(session.start_at) }}</time>
                 </li>
                 <li v-if="!recentProductivitySessions.length" class="empty-row">
-                  Aun no hay sesiones de productividad registradas.
+                  Aún no hay sesiones de productividad registradas.
                 </li>
               </ul>
             </div>
@@ -345,7 +345,7 @@ function notificationDate(value: string) {
                 </div>
                 <time>{{ achievementDate(achievement.achieved_at) }}</time>
               </li>
-              <li v-if="!recentAchievements.length" class="empty-row">Aun no hay logros desbloqueados.</li>
+              <li v-if="!recentAchievements.length" class="empty-row">Aún no hay logros desbloqueados.</li>
             </ul>
           </section>
         </div>

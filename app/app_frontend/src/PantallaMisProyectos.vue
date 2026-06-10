@@ -169,7 +169,7 @@ function accessLabel(project: Project) {
           </div>
         </div>
 
-        <p v-if="!props.loading && !orderedProjects.length" class="empty-state">Aun no tienes proyectos.</p>
+        <p v-if="!props.loading && !orderedProjects.length" class="empty-state">Aún no tienes proyectos.</p>
       </div>
       </div>
     </section>

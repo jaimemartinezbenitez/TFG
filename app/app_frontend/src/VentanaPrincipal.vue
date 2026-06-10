@@ -605,7 +605,7 @@ function clearTokens() {
 }
 
 function extractError(payload: unknown): string {
-  if (!payload || typeof payload !== 'object') return 'No se pudo completar la operacion.'
+  if (!payload || typeof payload !== 'object') return 'No se pudo realizar la operación.'
   const values = Object.values(payload as Record<string, unknown>).flat()
   const first = values[0]
   if (typeof first === 'string') return first
@@ -626,8 +626,8 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
   if (text && !contentType.includes('application/json')) {
     throw new Error(
       response.ok
-        ? 'La API no devolvio JSON. Revisa que el backend de Django este arrancado.'
-        : `La API devolvio una pagina HTML (${response.status}). Revisa la consola del backend de Django.`,
+        ? 'La API no devolvió JSON. Revisa que el backend de Django esté arrancado.'
+        : `La API devolvió una página HTML (${response.status}). Revisa la consola del backend de Django.`,
     )
   }
 
@@ -636,7 +636,7 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
     try {
       payload = JSON.parse(text)
     } catch {
-      throw new Error('La API devolvio una respuesta no valida.')
+      throw new Error('La API devolvió una respuesta no válida.')
     }
   }
 
@@ -657,7 +657,7 @@ async function login(username: string, password: string) {
 async function submitRegister() {
   authMessage.value = ''
   if (registerForm.value.password !== registerForm.value.confirmPassword) {
-    authMessage.value = 'Las contrasenas no coinciden.'
+    authMessage.value = 'Las contraseñas no coinciden.'
     return
   }
 
@@ -693,7 +693,7 @@ async function submitLogin() {
     authMessage.value = ''
     setCurrentView('dashboard', { clearHistory: true })
   } catch (error) {
-    authMessage.value = error instanceof Error ? error.message : 'No se pudo iniciar sesion.'
+    authMessage.value = error instanceof Error ? error.message : 'No se pudo iniciar sesión.'
   } finally {
     loading.value = false
   }
@@ -723,7 +723,7 @@ async function submitPasswordResetRequest() {
 async function submitPasswordResetConfirm() {
   authMessage.value = ''
   if (passwordResetForm.value.password !== passwordResetForm.value.confirmPassword) {
-    authMessage.value = 'Las contrasenas no coinciden.'
+    authMessage.value = 'Las contraseñas no coinciden.'
     return
   }
 
@@ -738,10 +738,10 @@ async function submitPasswordResetConfirm() {
     })
     clearAuthForms()
     authMode.value = 'login'
-    authMessage.value = 'Contrasena actualizada. Ya puedes iniciar sesion.'
+    authMessage.value = 'Contraseña actualizada. Ya puedes iniciar sesión.'
     void syncRouterUrl({ replace: true })
   } catch (error) {
-    authMessage.value = error instanceof Error ? error.message : 'No se pudo cambiar la contrasena.'
+    authMessage.value = error instanceof Error ? error.message : 'No se pudo cambiar la contraseña.'
   } finally {
     loading.value = false
   }
@@ -1837,6 +1837,22 @@ async function submitEditTask() {
   }
 }
 
+async function updateTaskStatus(task: Task, status: Task['status']) {
+  taskMessage.value = ''
+  try {
+    const updatedTask = await apiRequest<Task>(`/tasks/${task.id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
+    tasks.value = tasks.value.map((item) => (item.id === updatedTask.id ? updatedTask : item))
+    selectedTaskId.value = updatedTask.id
+    await loadDashboard()
+    dashboardMessage.value = status === 'COMPLETED' ? 'Tarea marcada como completada.' : 'Estado de la tarea actualizado.'
+  } catch (error) {
+    dashboardMessage.value = error instanceof Error ? error.message : 'No se pudo actualizar el estado de la tarea.'
+  }
+}
+
 async function confirmDeleteTask() {
   taskMessage.value = ''
   const task = selectedTask.value
@@ -1970,7 +1986,7 @@ async function shareTask() {
       ...collaborations.value.filter((item) => item.id !== collaboration.id),
     ]
     resetTaskShareForm()
-    taskShareMessage.value = 'Invitacion de colaboracion enviada correctamente.'
+    taskShareMessage.value = 'Invitación de colaboración enviada correctamente.'
   } catch (error) {
     taskShareMessage.value = error instanceof Error ? error.message : 'No se pudo invitar al colaborador.'
   } finally {
@@ -1988,7 +2004,7 @@ async function respondToCollaboration(collaboration: Collaboration, action: 'acc
     collaborations.value = collaborations.value.map((item) => (item.id === updated.id ? updated : item))
     await loadDashboard()
   } catch (error) {
-    dashboardMessage.value = error instanceof Error ? error.message : 'No se pudo responder a la invitacion.'
+    dashboardMessage.value = error instanceof Error ? error.message : 'No se pudo responder a la invitación.'
   } finally {
     collaborationLoading.value = false
   }
@@ -2058,7 +2074,7 @@ async function shareProject() {
       ...collaborations.value.filter((item) => item.id !== collaboration.id),
     ]
     resetProjectShareForm()
-    projectShareMessage.value = 'Invitacion de colaboracion enviada correctamente.'
+    projectShareMessage.value = 'Invitación de colaboración enviada correctamente.'
   } catch (error) {
     projectShareMessage.value = error instanceof Error ? error.message : 'No se pudo invitar al colaborador.'
   } finally {
@@ -2080,7 +2096,7 @@ async function submitEditProfile() {
 
   const wantsPasswordChange = Boolean(oldPassword || password)
   if (wantsPasswordChange && (!oldPassword || !password)) {
-    editProfileMessage.value = 'Para cambiar la contrasena, rellena la contrasena actual y la nueva.'
+    editProfileMessage.value = 'Para cambiar la contraseña, rellena la contraseña actual y la nueva.'
     return
   }
 
@@ -2117,7 +2133,7 @@ async function deleteAccount() {
   deleteAccountMessage.value = ''
   const password = deleteAccountForm.value.password
   if (!password) {
-    deleteAccountMessage.value = 'Introduce tu contrasena para confirmar la eliminacion.'
+    deleteAccountMessage.value = 'Introduce tu contraseña para confirmar la eliminación.'
     return
   }
 
@@ -2184,7 +2200,7 @@ async function logout() {
       })
     }
   } catch {
-    // Aunque el token haya expirado o el servidor no responda, la sesion local debe cerrarse.
+    // Aunque el token haya expirado o el servidor no responda, la sesión local debe cerrarse.
   } finally {
     clearSessionState()
   }
@@ -2229,7 +2245,7 @@ function formatDate(value: string | null) {
   const tomorrow = new Date()
   tomorrow.setDate(today.getDate() + 1)
   if (date.toDateString() === today.toDateString()) return 'Hoy'
-  if (date.toDateString() === tomorrow.toDateString()) return 'Manana'
+  if (date.toDateString() === tomorrow.toDateString()) return 'Mañana'
   return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(date)
 }
 
@@ -2485,6 +2501,7 @@ onMounted(() => {
       @view-task="openTaskDetail"
       @edit-task="openEditTask"
       @delete-task="openDeleteTask"
+      @update-task-status="updateTaskStatus"
     />
 
     <PantallaTarea

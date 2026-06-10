@@ -82,58 +82,7 @@ sudo systemctl start postgresql
 sudo systemctl status postgresql
 ```
 
-Si el estado aparece como `active (exited)`, PostgreSQL puede estar instalado pero sin un cluster arrancado.
-Para comprobar los clusters:
-
-```bash
-pg_lsclusters
-```
-
-Debe aparecer una fila parecida a esta:
-
-```text
-Ver Cluster Port Status Owner    Data directory              Log file
-14  main    5432 down   postgres /var/lib/postgresql/14/main ...
-```
-
-Si el estado es `down`, arrancar el cluster indicando la versión y el nombre.
-Por ejemplo, en PostgreSQL 14:
-
-```bash
-sudo pg_ctlcluster 14 main start
-```
-
-Volver a comprobar:
-
-```bash
-pg_lsclusters
-```
-
-El estado debe aparecer como `online`.
-
-Si no aparece ningún cluster, crear uno. Por ejemplo, en PostgreSQL 14:
-
-```bash
-sudo pg_createcluster 14 main --start
-```
-
-Si la versión no es la 14, usar la versión que aparezca en el comando:
-
-```bash
-pg_lsclusters
-```
-
-Por ejemplo, si aparece PostgreSQL 16 y el cluster está parado:
-
-```bash
-sudo pg_ctlcluster 16 main start
-```
-
-Si aparece PostgreSQL 16 y no existe ningún cluster:
-
-```bash
-sudo pg_createcluster 16 main --start
-```
+Si el estado aparece como `active (exited)`, 
 
 Después, entrar en PostgreSQL con el usuario administrador:
 

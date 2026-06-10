@@ -29,8 +29,8 @@ const items: Array<{ id: MenuSection; label: string; icon: string }> = [
   { id: 'tareas', label: 'Tareas', icon: '/icono-tareas.png' },
   { id: 'proyecto', label: 'Proyecto', icon: '/icono-proyecto.png' },
   { id: 'calendario', label: 'Calendario', icon: '/icono-calendario.png' },
-  { id: 'tecnicas', label: 'Tecnicas', icon: '/icono-tecnicas.png' },
-  { id: 'estadisticas', label: 'Estadisticas', icon: '/icono-estadisticas.png' },
+  { id: 'tecnicas', label: 'Técnicas', icon: '/icono-tecnicas.png' },
+  { id: 'estadisticas', label: 'Estadísticas', icon: '/icono-estadisticas.png' },
   { id: 'logros', label: 'Logros', icon: '/icono-logros.png' },
   { id: 'exportar', label: 'Exportar datos', icon: '/icono-exportardatos.png' },
 ]
@@ -40,7 +40,7 @@ const items: Array<{ id: MenuSection; label: string; icon: string }> = [
   <aside class="sidebar">
     <img class="company-icon" src="/icono.png" alt="ConcentraPlus" />
 
-    <nav class="nav-menu" aria-label="Navegacion principal">
+    <nav class="nav-menu" aria-label="Navegación principal">
       <button
         v-for="item in items"
         :key="item.id"

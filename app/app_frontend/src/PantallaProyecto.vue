@@ -216,7 +216,7 @@ function developedByLabel(task: Task) {
               </select>
             </label>
             <button type="submit" :disabled="props.shareLoading">
-              {{ props.shareLoading ? 'Enviando invitacion...' : 'Invitar a colaborar' }}
+              {{ props.shareLoading ? 'Enviando invitación...' : 'Invitar a colaborar' }}
             </button>
           </form>
           <p v-if="props.shareMessage" class="share-message">{{ props.shareMessage }}</p>

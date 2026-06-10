@@ -62,14 +62,23 @@ const favoriteTechnique = computed(() => {
     number,
   ]
 
-  return total > 0 ? techniqueLabel(technique) : 'Sin datos'
+  return total > 0 ? techniqueLabel(technique) : 'Aún sin sesiones'
 })
 
 function techniqueLabel(technique: ProductivityTechnique) {
   const labels = {
     POMODORO: 'Pomodoro',
-    TIME_BLOCKING: 'Time blocking',
+    TIME_BLOCKING: 'Time Blocking',
     FIFTY_TWO_SEVENTEEN: '52/17',
+  }
+  return labels[technique]
+}
+
+function techniquePurpose(technique: ProductivityTechnique) {
+  const labels = {
+    POMODORO: 'Trabajo breve con descansos frecuentes.',
+    TIME_BLOCKING: 'Organización del día en bloques concretos.',
+    FIFTY_TWO_SEVENTEEN: 'Sesiones largas para tareas exigentes.',
   }
   return labels[technique]
 }
@@ -118,9 +127,24 @@ function elapsedLabel(value: string) {
 
       <header class="techniques-header">
         <h1>Técnicas de productividad</h1>
-        <p class="lead">Elige la técnica que mejor se adapte a tu forma de trabajar</p>
+        <p class="lead">Registra sesiones de concentración y convierte el tiempo trabajado en métricas de productividad.</p>
         <p v-if="props.message" class="technique-message">{{ props.message }}</p>
       </header>
+
+      <section class="technique-flow" aria-label="Funcionamiento de las sesiones de productividad">
+        <article>
+          <strong>1</strong>
+          <span>Elige una técnica</span>
+        </article>
+        <article>
+          <strong>2</strong>
+          <span>Trabaja con el temporizador o con bloques</span>
+        </article>
+        <article>
+          <strong>3</strong>
+          <span>La sesión se guarda en estadísticas y logros</span>
+        </article>
+      </section>
 
       <section v-if="activeSessions.length" class="active-sessions" aria-label="Sesiones en curso">
         <div class="active-sessions-title">
@@ -143,22 +167,25 @@ function elapsedLabel(value: string) {
       <div class="technique-grid">
         <article class="technique-card">
           <div class="technique-icon tomato-icon" aria-hidden="true"><span>25:00</span></div>
-          <h2>POMODORO</h2>
-          <p>25 min de enfoque<br />+ 5 min descanso</p>
+          <h2>Pomodoro</h2>
+          <p>25 minutos de concentración y 5 minutos de descanso para avanzar en tareas cortas.</p>
+          <small>{{ techniquePurpose('POMODORO') }}</small>
           <button type="button" :disabled="props.loading" @click="emit('start-technique', 'POMODORO')">Iniciar</button>
         </article>
 
         <article class="technique-card">
           <div class="technique-icon clock-icon" aria-hidden="true"></div>
-          <h2>TIME BLOCKING</h2>
-          <p>Planifica bloques de<br />tiempo para cada tarea</p>
+          <h2>Time Blocking</h2>
+          <p>Planifica franjas horarias, asigna una actividad a cada bloque y registra el tiempo total.</p>
+          <small>{{ techniquePurpose('TIME_BLOCKING') }}</small>
           <button type="button" :disabled="props.loading" @click="emit('start-technique', 'TIME_BLOCKING')">Iniciar</button>
         </article>
 
         <article class="technique-card">
           <div class="technique-icon cycle-icon" aria-hidden="true"><span>52/17</span></div>
           <h2>52/17</h2>
-          <p>52 min de enfoque<br />+17 min descanso</p>
+          <p>52 minutos de trabajo profundo y 17 minutos de descanso para sesiones largas.</p>
+          <small>{{ techniquePurpose('FIFTY_TWO_SEVENTEEN') }}</small>
           <button type="button" :disabled="props.loading" @click="emit('start-technique', 'FIFTY_TWO_SEVENTEEN')">Iniciar</button>
         </article>
       </div>
@@ -190,7 +217,7 @@ function elapsedLabel(value: string) {
           </div>
 
           <p v-if="!recentSessions.length" class="empty-history">
-            Cuando completes una técnica, aquí aparecerá el historial de tus sesiones.
+            Al finalizar una técnica, aquí aparecerá el historial de tus sesiones.
           </p>
 
           <table v-else>
@@ -290,6 +317,41 @@ h1 {
   color: #e5333f;
 }
 
+.technique-flow {
+  width: min(100%, 1040px);
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.technique-flow article {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fbfffe;
+  padding: 12px 14px;
+}
+
+.technique-flow strong {
+  width: 34px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #715cff;
+}
+
+.technique-flow span {
+  color: #34384a;
+  font-weight: 800;
+}
+
 .active-sessions {
   width: min(100%, 1040px);
   margin-top: 24px;
@@ -370,7 +432,11 @@ h1 {
   display: grid;
   justify-items: center;
   align-content: start;
-  min-height: 320px;
+  min-height: 390px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 22px 18px;
 }
 
 .technique-icon {
@@ -428,14 +494,22 @@ h1 {
 }
 
 .technique-card p {
-  min-height: 56px;
-  margin: 10px 0 30px;
+  min-height: 76px;
+  margin: 10px 0 8px;
   font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.technique-card small {
+  min-height: 38px;
+  color: #6d7180;
+  font-weight: 700;
 }
 
 .technique-card button {
   width: 150px;
   height: 36px;
+  margin-top: 22px;
   border: 0;
   border-radius: 999px;
   color: #fff;
@@ -551,7 +625,8 @@ th {
 
 @media (max-width: 1120px) {
   .technique-grid,
-  .history-section {
+  .history-section,
+  .technique-flow {
     width: min(100%, 860px);
   }
 
@@ -580,6 +655,10 @@ th {
   .technique-grid {
     grid-template-columns: 1fr;
     gap: 28px;
+  }
+
+  .technique-flow {
+    grid-template-columns: 1fr;
   }
 
   .technique-card {

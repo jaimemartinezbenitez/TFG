@@ -155,10 +155,6 @@ function selectUser(user: UserProfile) {
               <dd><span class="dot" :class="statusClass(props.task.status)"></span>{{ statusLabel(props.task.status) }}</dd>
             </div>
             <div>
-              <dt>Duración</dt>
-              <dd>No registrada</dd>
-            </div>
-            <div>
               <dt>Proyecto</dt>
               <dd>{{ props.projectName }}</dd>
             </div>
@@ -207,7 +203,7 @@ function selectUser(user: UserProfile) {
               </select>
             </label>
             <button type="submit" :disabled="props.shareLoading">
-              {{ props.shareLoading ? 'Enviando invitacion...' : 'Invitar a colaborar' }}
+              {{ props.shareLoading ? 'Enviando invitación...' : 'Invitar a colaborar' }}
             </button>
           </form>
           <p v-if="props.shareMessage" class="share-message">{{ props.shareMessage }}</p>

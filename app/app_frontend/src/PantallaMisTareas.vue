@@ -6,9 +6,9 @@ Descripcion: Representa el listado general de tareas del usuario.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import MenuLateral from './MenuLateral.vue'
-import type { Project, Task } from './types'
+import type { Project, Task, TaskPriority, TaskStatus } from './types'
 
 const props = defineProps<{
   tasks: Task[]
@@ -25,14 +25,83 @@ const emit = defineEmits<{
   'view-task': [task: Task]
   'edit-task': [task: Task]
   'delete-task': [task: Task]
+  'update-task-status': [task: Task, status: TaskStatus]
 }>()
 
+const searchText = ref('')
+const statusFilter = ref<'ALL' | TaskStatus>('ALL')
+const priorityFilter = ref<'ALL' | TaskPriority>('ALL')
+const projectFilter = ref('ALL')
+const dateFilter = ref<'ALL' | 'OVERDUE' | 'TODAY' | 'WEEK' | 'NO_DATE'>('ALL')
+const sortMode = ref<'DUE_DATE' | 'PRIORITY' | 'CREATED_AT' | 'TITLE'>('DUE_DATE')
+
+const todayIso = computed(() => new Date().toISOString().slice(0, 10))
+
+const visibleTasks = computed(() => {
+  const search = searchText.value.trim().toLowerCase()
+  const today = todayIso.value
+  const weekLimit = new Date()
+  weekLimit.setDate(weekLimit.getDate() + 7)
+  const weekLimitIso = weekLimit.toISOString().slice(0, 10)
+
+  return props.tasks.filter((task) => {
+    if (search) {
+      const searchable = [
+        task.title,
+        task.description,
+        projectName(task),
+        task.created_by,
+        ...(task.developed_by || []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      if (!searchable.includes(search)) return false
+    }
+
+    if (statusFilter.value !== 'ALL' && task.status !== statusFilter.value) return false
+    if (priorityFilter.value !== 'ALL' && task.priority !== priorityFilter.value) return false
+    if (projectFilter.value !== 'ALL') {
+      const expectedProject = projectFilter.value === 'NONE' ? null : Number(projectFilter.value)
+      if (task.project !== expectedProject) return false
+    }
+
+    if (dateFilter.value === 'OVERDUE' && (!task.due_date || task.due_date >= today || task.status === 'COMPLETED')) return false
+    if (dateFilter.value === 'TODAY' && task.due_date !== today) return false
+    if (dateFilter.value === 'WEEK' && (!task.due_date || task.due_date < today || task.due_date > weekLimitIso)) return false
+    if (dateFilter.value === 'NO_DATE' && task.due_date) return false
+
+    return true
+  })
+})
+
 const orderedTasks = computed(() =>
-  [...props.tasks].sort((a, b) => {
+  [...visibleTasks.value].sort((a, b) => {
+    if (sortMode.value === 'PRIORITY') {
+      const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 }
+      return priorityOrder[a.priority] - priorityOrder[b.priority] || a.title.localeCompare(b.title)
+    }
+    if (sortMode.value === 'CREATED_AT') {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
+    if (sortMode.value === 'TITLE') {
+      return a.title.localeCompare(b.title)
+    }
     const first = a.due_date || '9999-12-31'
     const second = b.due_date || '9999-12-31'
     return first.localeCompare(second) || a.title.localeCompare(b.title)
   }),
+)
+
+const activeFilters = computed(() =>
+  Boolean(
+    searchText.value.trim() ||
+      statusFilter.value !== 'ALL' ||
+      priorityFilter.value !== 'ALL' ||
+      projectFilter.value !== 'ALL' ||
+      dateFilter.value !== 'ALL' ||
+      sortMode.value !== 'DUE_DATE',
+  ),
 )
 
 const totalTasks = computed(() => props.tasks.length)
@@ -40,6 +109,7 @@ const pendingTasks = computed(() => props.tasks.filter((task) => task.status ===
 const inProgressTasks = computed(() => props.tasks.filter((task) => task.status === 'IN_PROGRESS').length)
 const completedTasks = computed(() => props.tasks.filter((task) => task.status === 'COMPLETED').length)
 const highPriorityTasks = computed(() => props.tasks.filter((task) => task.priority === 'HIGH').length)
+const filteredCount = computed(() => orderedTasks.value.length)
 
 function priorityLabel(priority: Task['priority']) {
   return {
@@ -106,8 +176,26 @@ function developedByLabel(task: Task) {
 
 function ownershipLabel(task: Task) {
   if (task.is_owner) return 'Propia'
-  if (task.collaboration_role) return `Compartida · ${task.collaboration_role}`
+  if (task.collaboration_role) return `Compartida · ${roleLabel(task.collaboration_role)}`
   return 'Tarea'
+}
+
+function roleLabel(role: Task['collaboration_role']) {
+  return {
+    OWNER: 'Propietario',
+    READER: 'Lector',
+    EDITOR: 'Editor',
+    ADMIN: 'Administrador',
+  }[role || 'READER']
+}
+
+function clearFilters() {
+  searchText.value = ''
+  statusFilter.value = 'ALL'
+  priorityFilter.value = 'ALL'
+  projectFilter.value = 'ALL'
+  dateFilter.value = 'ALL'
+  sortMode.value = 'DUE_DATE'
 }
 </script>
 
@@ -136,6 +224,70 @@ function ownershipLabel(task: Task) {
       <p v-if="props.message" class="task-message">{{ props.message }}</p>
       <p v-else-if="props.loading" class="task-message">Cargando tareas...</p>
 
+      <section class="task-filters" aria-label="Filtros de tareas">
+        <label class="search-field">
+          Buscar tarea
+          <input v-model.trim="searchText" type="search" placeholder="Título, descripción o proyecto" />
+        </label>
+
+        <label>
+          Estado
+          <select v-model="statusFilter">
+            <option value="ALL">Todos</option>
+            <option value="PENDING">Pendientes</option>
+            <option value="IN_PROGRESS">En progreso</option>
+            <option value="COMPLETED">Completadas</option>
+            <option value="CANCELLED">Canceladas</option>
+          </select>
+        </label>
+
+        <label>
+          Prioridad
+          <select v-model="priorityFilter">
+            <option value="ALL">Todas</option>
+            <option value="HIGH">Alta</option>
+            <option value="MEDIUM">Media</option>
+            <option value="LOW">Baja</option>
+          </select>
+        </label>
+
+        <label>
+          Proyecto
+          <select v-model="projectFilter">
+            <option value="ALL">Todos</option>
+            <option value="NONE">Sin proyecto</option>
+            <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
+              {{ project.name }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Fecha
+          <select v-model="dateFilter">
+            <option value="ALL">Todas</option>
+            <option value="OVERDUE">Vencidas</option>
+            <option value="TODAY">Para hoy</option>
+            <option value="WEEK">Próximos 7 días</option>
+            <option value="NO_DATE">Sin fecha</option>
+          </select>
+        </label>
+
+        <label>
+          Ordenar por
+          <select v-model="sortMode">
+            <option value="DUE_DATE">Fecha límite</option>
+            <option value="PRIORITY">Prioridad</option>
+            <option value="CREATED_AT">Más recientes</option>
+            <option value="TITLE">Título</option>
+          </select>
+        </label>
+
+        <button class="clear-filter-button" type="button" :disabled="!activeFilters" @click="clearFilters">
+          Limpiar filtros
+        </button>
+      </section>
+
       <div class="task-stats" aria-label="Resumen de tareas">
         <article>
           <span>Total</span>
@@ -157,6 +309,10 @@ function ownershipLabel(task: Task) {
           <span>Completadas</span>
           <strong class="accent">{{ completedTasks }}</strong>
         </article>
+        <article>
+          <span>Mostradas</span>
+          <strong class="accent">{{ filteredCount }}</strong>
+        </article>
       </div>
 
       <div class="task-table-shell">
@@ -167,7 +323,7 @@ function ownershipLabel(task: Task) {
           <strong>Prioridad</strong>
           <strong>Estado</strong>
           <strong>Entrega</strong>
-          <span></span>
+          <strong>Acciones</strong>
         </div>
 
         <div v-for="task in orderedTasks" :key="task.id" class="task-row" role="row">
@@ -191,16 +347,29 @@ function ownershipLabel(task: Task) {
           </strong>
           <time>{{ formatDate(task.due_date) }}</time>
           <div class="row-actions">
-            <button v-if="task.can_edit" class="icon-button" type="button" title="Editar tarea" @click="emit('edit-task', task)">
-              <img src="/icono-editar.png" alt="" aria-hidden="true" />
+            <button class="text-action" type="button" @click="emit('view-task', task)">
+              Ver
             </button>
-            <button v-if="task.is_owner" class="icon-button" type="button" title="Eliminar tarea" @click="emit('delete-task', task)">
-              <img src="/icono-borrar.png" alt="" aria-hidden="true" />
+            <button v-if="task.can_edit" class="text-action primary" type="button" @click="emit('edit-task', task)">
+              Editar
+            </button>
+            <button
+              v-if="task.can_edit && task.status !== 'COMPLETED'"
+              class="text-action success-action"
+              type="button"
+              @click="emit('update-task-status', task, 'COMPLETED')"
+            >
+              Marcar hecha
+            </button>
+            <button v-if="task.is_owner" class="text-action danger-action" type="button" @click="emit('delete-task', task)">
+              Eliminar
             </button>
           </div>
         </div>
 
-        <p v-if="!props.loading && !orderedTasks.length" class="empty-state">Aun no tienes tareas.</p>
+        <p v-if="!props.loading && !orderedTasks.length" class="empty-state">
+          {{ totalTasks ? 'No hay tareas que coincidan con los filtros.' : 'Aún no tienes tareas.' }}
+        </p>
       </div>
       </div>
     </section>
@@ -247,7 +416,7 @@ function ownershipLabel(task: Task) {
   width: min(100%, 980px);
   margin-top: 24px;
   display: grid;
-  grid-template-columns: repeat(5, minmax(118px, 1fr));
+  grid-template-columns: repeat(6, minmax(118px, 1fr));
   gap: 12px;
 }
 
@@ -347,6 +516,62 @@ function ownershipLabel(task: Task) {
   margin: 18px 0 0;
 }
 
+.task-filters {
+  width: min(100%, 1180px);
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) repeat(5, minmax(132px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fbfffe;
+  padding: 14px;
+}
+
+.task-filters label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: #565b6a;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.task-filters input,
+.task-filters select {
+  width: 100%;
+  min-height: 36px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fff;
+  color: #171a22;
+  padding: 0 10px;
+  font: inherit;
+  font-weight: 600;
+}
+
+.search-field {
+  grid-column: span 1;
+}
+
+.clear-filter-button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #715cff;
+  padding: 0 18px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.clear-filter-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .task-table-shell {
   width: min(100%, 1180px);
   margin-top: 22px;
@@ -363,7 +588,7 @@ function ownershipLabel(task: Task) {
 .task-row {
   min-height: 76px;
   display: grid;
-  grid-template-columns: 34px minmax(300px, 1fr) 112px 132px 112px 104px;
+  grid-template-columns: 34px minmax(260px, 1fr) 112px 132px 112px minmax(248px, auto);
   gap: 12px;
   align-items: center;
   border-bottom: 1px solid #75ddcb;
@@ -493,26 +718,36 @@ function ownershipLabel(task: Task) {
 
 .row-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: end;
-  gap: 8px;
+  gap: 6px;
 }
 
-.icon-button {
-  width: 38px;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  padding: 0;
+.text-action {
+  min-height: 30px;
+  border: 1.5px solid #d5f6ef;
+  border-radius: 999px;
+  background: #fff;
+  color: #34384a;
+  padding: 0 10px;
+  font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.icon-button img {
-  width: 34px;
-  height: 34px;
-  display: block;
-  object-fit: contain;
+.text-action.primary {
+  border-color: #715cff;
+  color: #715cff;
+}
+
+.success-action {
+  border-color: #00bf63;
+  color: #007a44;
+}
+
+.danger-action {
+  border-color: #ffb7bf;
+  color: #d91f2d;
 }
 
 @media (max-width: 860px) {
@@ -538,7 +773,11 @@ function ownershipLabel(task: Task) {
   }
 
   .task-row {
-    min-width: 860px;
+    min-width: 980px;
+  }
+
+  .task-filters {
+    grid-template-columns: 1fr;
   }
 
   .task-stats {
