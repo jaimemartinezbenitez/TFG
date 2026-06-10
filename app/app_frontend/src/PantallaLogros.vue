@@ -249,15 +249,16 @@ function achievedDate(achievement: AchievementCard) {
       </button>
 
       <header class="achievements-header">
-        <div>
+        <div class="achievements-title-row">
           <h1>Logros</h1>
-          <p>{{ unlockedCount }} de {{ catalog.length }} desbloqueados</p>
+
+          <div class="period-summary">
+            <strong>{{ periodUnlockedCount }}/{{ filteredCatalog.length }}</strong>
+            <span>{{ currentPeriodLabel }}</span>
+          </div>
         </div>
 
-        <div class="period-summary">
-          <strong>{{ periodUnlockedCount }}/{{ filteredCatalog.length }}</strong>
-          <span>{{ currentPeriodLabel }}</span>
-        </div>
+        <p>{{ unlockedCount }} de {{ catalog.length }} desbloqueados</p>
       </header>
 
       <nav class="period-tabs" aria-label="Categorias de logros">
@@ -351,10 +352,16 @@ function achievedDate(achievement: AchievementCard) {
 }
 
 .achievements-header {
+  display: grid;
+  justify-content: start;
+  gap: 10px;
+}
+
+.achievements-title-row {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: end;
-  gap: 24px;
+  gap: 18px;
 }
 
 h1 {
@@ -364,24 +371,24 @@ h1 {
 }
 
 .achievements-header p {
-  margin: 10px 0 0;
+  margin: 0;
   color: #5d6170;
   font-size: 1.05rem;
 }
 
 .period-summary {
-  min-width: 150px;
+  min-width: 132px;
   display: grid;
   justify-items: center;
   gap: 4px;
   border: 2px solid #715cff;
   border-radius: 8px;
-  padding: 12px 18px;
+  padding: 8px 14px;
   color: #715cff;
 }
 
 .period-summary strong {
-  font-size: 2rem;
+  font-size: 1.7rem;
   line-height: 1;
 }
 

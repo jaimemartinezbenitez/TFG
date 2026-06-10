@@ -601,17 +601,18 @@ h1 {
 
 .donut-row {
   display: grid;
-  grid-template-columns: 170px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 150px minmax(150px, 1fr);
+  gap: 18px;
   align-items: center;
   margin-top: 24px;
 }
 
 .donut {
-  width: 170px;
+  width: min(150px, 100%);
   aspect-ratio: 1;
   border-radius: 50%;
   position: relative;
+  justify-self: center;
 }
 
 .donut::after {
@@ -642,7 +643,13 @@ h1 {
 }
 
 .distribution-panel li {
-  grid-template-columns: 14px minmax(0, 1fr) 52px;
+  grid-template-columns: 14px minmax(0, 1fr) minmax(34px, auto);
+}
+
+.distribution-panel small {
+  justify-self: end;
+  min-width: 34px;
+  text-align: right;
 }
 
 .weekly-panel li {
