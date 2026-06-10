@@ -6,7 +6,7 @@ Descripcion: Representa el listado general de proyectos del usuario.
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import MenuLateral from './MenuLateral.vue'
 import type { Project } from './types'
 
@@ -26,12 +26,89 @@ const emit = defineEmits<{
   'delete-project': [project: Project]
 }>()
 
+const searchText = ref('')
+const progressFilter = ref<'ALL' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'>('ALL')
+const accessFilter = ref<'ALL' | 'OWN' | 'SHARED'>('ALL')
+const collaboratorFilter = ref<'ALL' | 'WITH' | 'WITHOUT'>('ALL')
+const dateFilter = ref<'ALL' | 'ACTIVE' | 'ENDING_SOON' | 'FINISHED' | 'NO_DATE'>('ALL')
+const sortMode = ref<'END_DATE' | 'PROGRESS' | 'CREATED_AT' | 'NAME' | 'TASKS'>('END_DATE')
+
+const todayIso = computed(() => new Date().toISOString().slice(0, 10))
+
+const visibleProjects = computed(() => {
+  const search = searchText.value.trim().toLowerCase()
+  const today = todayIso.value
+  const weekLimit = new Date()
+  weekLimit.setDate(weekLimit.getDate() + 7)
+  const weekLimitIso = weekLimit.toISOString().slice(0, 10)
+
+  return props.projects.filter((project) => {
+    const projectProgress = progress(project)
+    const collaborators = project.collaborators || []
+
+    if (search) {
+      const searchable = [
+        project.name,
+        project.description,
+        project.owner?.username,
+        ...collaborators.map((collaborator) => collaborator.username),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      if (!searchable.includes(search)) return false
+    }
+
+    if (progressFilter.value === 'PENDING' && projectProgress > 0) return false
+    if (progressFilter.value === 'IN_PROGRESS' && (projectProgress <= 0 || projectProgress >= 100)) return false
+    if (progressFilter.value === 'COMPLETED' && projectProgress < 100) return false
+
+    if (accessFilter.value === 'OWN' && !project.is_owner) return false
+    if (accessFilter.value === 'SHARED' && !project.collaboration_role) return false
+
+    if (collaboratorFilter.value === 'WITH' && !collaborators.length) return false
+    if (collaboratorFilter.value === 'WITHOUT' && collaborators.length) return false
+
+    if (dateFilter.value === 'ACTIVE') {
+      if ((project.start_date && project.start_date > today) || (project.end_date && project.end_date < today)) return false
+    }
+    if (dateFilter.value === 'ENDING_SOON' && (!project.end_date || project.end_date < today || project.end_date > weekLimitIso)) return false
+    if (dateFilter.value === 'FINISHED' && (!project.end_date || project.end_date >= today)) return false
+    if (dateFilter.value === 'NO_DATE' && (project.start_date || project.end_date)) return false
+
+    return true
+  })
+})
+
 const orderedProjects = computed(() =>
-  [...props.projects].sort((a, b) => {
+  [...visibleProjects.value].sort((a, b) => {
+    if (sortMode.value === 'PROGRESS') {
+      return progress(b) - progress(a) || a.name.localeCompare(b.name)
+    }
+    if (sortMode.value === 'CREATED_AT') {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
+    if (sortMode.value === 'NAME') {
+      return a.name.localeCompare(b.name)
+    }
+    if (sortMode.value === 'TASKS') {
+      return (b.tasks_count || 0) - (a.tasks_count || 0) || a.name.localeCompare(b.name)
+    }
     const first = a.end_date || '9999-12-31'
     const second = b.end_date || '9999-12-31'
     return first.localeCompare(second) || a.name.localeCompare(b.name)
   }),
+)
+
+const activeFilters = computed(() =>
+  Boolean(
+    searchText.value.trim() ||
+      progressFilter.value !== 'ALL' ||
+      accessFilter.value !== 'ALL' ||
+      collaboratorFilter.value !== 'ALL' ||
+      dateFilter.value !== 'ALL' ||
+      sortMode.value !== 'END_DATE',
+  ),
 )
 
 const totalProjects = computed(() => props.projects.length)
@@ -46,6 +123,7 @@ const completedProjects = computed(() => props.projects.filter((project) => prog
 const totalProjectTasks = computed(() =>
   props.projects.reduce((total, project) => total + (project.tasks_count || 0), 0),
 )
+const filteredCount = computed(() => orderedProjects.value.length)
 
 function progress(project: Project) {
   return project.progress_percentage ?? 0
@@ -76,8 +154,26 @@ function dateRange(project: Project) {
 
 function accessLabel(project: Project) {
   if (project.is_owner) return 'Propio'
-  if (project.collaboration_role) return `Compartido · ${project.collaboration_role}`
+  if (project.collaboration_role) return `Compartido · ${roleLabel(project.collaboration_role)}`
   return 'Proyecto'
+}
+
+function roleLabel(role: Project['collaboration_role']) {
+  return {
+    OWNER: 'Propietario',
+    READER: 'Lector',
+    EDITOR: 'Editor',
+    ADMIN: 'Administrador',
+  }[role || 'READER']
+}
+
+function clearFilters() {
+  searchText.value = ''
+  progressFilter.value = 'ALL'
+  accessFilter.value = 'ALL'
+  collaboratorFilter.value = 'ALL'
+  dateFilter.value = 'ALL'
+  sortMode.value = 'END_DATE'
 }
 </script>
 
@@ -105,6 +201,67 @@ function accessLabel(project: Project) {
       <p v-if="props.message" class="project-message">{{ props.message }}</p>
       <p v-else-if="props.loading" class="project-message">Cargando proyectos...</p>
 
+      <section class="project-filters" aria-label="Filtros de proyectos">
+        <label class="search-field">
+          Buscar proyecto
+          <input v-model.trim="searchText" type="search" placeholder="Nombre, descripción o colaborador" />
+        </label>
+
+        <label>
+          Progreso
+          <select v-model="progressFilter">
+            <option value="ALL">Todos</option>
+            <option value="PENDING">Pendientes</option>
+            <option value="IN_PROGRESS">En progreso</option>
+            <option value="COMPLETED">Completados</option>
+          </select>
+        </label>
+
+        <label>
+          Acceso
+          <select v-model="accessFilter">
+            <option value="ALL">Todos</option>
+            <option value="OWN">Propios</option>
+            <option value="SHARED">Compartidos</option>
+          </select>
+        </label>
+
+        <label>
+          Colaboradores
+          <select v-model="collaboratorFilter">
+            <option value="ALL">Todos</option>
+            <option value="WITH">Con colaboradores</option>
+            <option value="WITHOUT">Sin colaboradores</option>
+          </select>
+        </label>
+
+        <label>
+          Fecha
+          <select v-model="dateFilter">
+            <option value="ALL">Todas</option>
+            <option value="ACTIVE">Activos ahora</option>
+            <option value="ENDING_SOON">Finalizan pronto</option>
+            <option value="FINISHED">Finalizados</option>
+            <option value="NO_DATE">Sin fechas</option>
+          </select>
+        </label>
+
+        <label>
+          Ordenar por
+          <select v-model="sortMode">
+            <option value="END_DATE">Fecha final</option>
+            <option value="PROGRESS">Progreso</option>
+            <option value="CREATED_AT">Más recientes</option>
+            <option value="NAME">Nombre</option>
+            <option value="TASKS">Número de tareas</option>
+          </select>
+        </label>
+
+        <button class="clear-filter-button" type="button" :disabled="!activeFilters" @click="clearFilters">
+          Limpiar filtros
+        </button>
+      </section>
+
       <div class="project-stats" aria-label="Resumen de proyectos">
         <article>
           <span>Total</span>
@@ -125,6 +282,10 @@ function accessLabel(project: Project) {
         <article>
           <span>Tareas</span>
           <strong class="accent">{{ totalProjectTasks }}</strong>
+        </article>
+        <article>
+          <span>Mostrados</span>
+          <strong class="accent">{{ filteredCount }}</strong>
         </article>
       </div>
 
@@ -160,16 +321,21 @@ function accessLabel(project: Project) {
           <span class="tasks-count">{{ project.completed_tasks_count || 0 }} / {{ project.tasks_count || 0 }}</span>
           <time>{{ dateRange(project) }}</time>
           <div class="row-actions">
-            <button v-if="project.can_edit" class="icon-button" type="button" title="Editar proyecto" @click="emit('edit-project', project)">
-              <img src="/icono-editar.png" alt="" aria-hidden="true" />
+            <button class="text-action" type="button" @click="emit('view-project', project)">
+              Ver
             </button>
-            <button v-if="project.is_owner" class="icon-button" type="button" title="Eliminar proyecto" @click="emit('delete-project', project)">
-              <img src="/icono-borrar.png" alt="" aria-hidden="true" />
+            <button v-if="project.can_edit" class="text-action primary" type="button" @click="emit('edit-project', project)">
+              Editar
+            </button>
+            <button v-if="project.is_owner" class="text-action danger-action" type="button" @click="emit('delete-project', project)">
+              Eliminar
             </button>
           </div>
         </div>
 
-        <p v-if="!props.loading && !orderedProjects.length" class="empty-state">Aún no tienes proyectos.</p>
+        <p v-if="!props.loading && !orderedProjects.length" class="empty-state">
+          {{ totalProjects ? 'No hay proyectos que coincidan con los filtros.' : 'Aún no tienes proyectos.' }}
+        </p>
       </div>
       </div>
     </section>
@@ -190,7 +356,7 @@ function accessLabel(project: Project) {
 
 .projects-content {
   min-width: 0;
-  padding: 62px 24px 74px 52px;
+  padding: 32px 12px 50px 16px;
 }
 
 .projects-header {
@@ -213,10 +379,10 @@ function accessLabel(project: Project) {
 }
 
 .project-stats {
-  width: min(100%, 980px);
-  margin-top: 24px;
+  width: min(100%, 1180px);
+  margin-top: 18px;
   display: grid;
-  grid-template-columns: repeat(5, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
   gap: 12px;
 }
 
@@ -243,7 +409,7 @@ function accessLabel(project: Project) {
 .header-actions {
   display: grid;
   justify-items: end;
-  gap: 54px;
+  gap: 12px;
 }
 
 .avatar-button {
@@ -294,27 +460,87 @@ function accessLabel(project: Project) {
   margin: 18px 0 0;
 }
 
+.project-filters {
+  width: min(100%, 1180px);
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.3fr) repeat(3, minmax(120px, 0.9fr));
+  gap: 8px;
+  align-items: end;
+  border: 1.5px solid #75ddcb;
+  border-radius: 8px;
+  background: #fbfffe;
+  padding: 10px;
+}
+
+.project-filters label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: #565b6a;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.project-filters input,
+.project-filters select {
+  width: 100%;
+  min-height: 32px;
+  border: 1.5px solid #75ddcb;
+  border-radius: 6px;
+  background: #fff;
+  color: #171a22;
+  padding: 0 8px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.search-field {
+  grid-column: span 1;
+}
+
+.clear-filter-button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #715cff;
+  padding: 0 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.clear-filter-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .project-table-shell {
   width: min(100%, 1180px);
-  margin-top: 22px;
+  margin-top: 20px;
   border: 1.5px solid #75ddcb;
   border-radius: 8px;
   background: #fff;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .project-table {
   width: 100%;
+  min-width: 980px;
 }
 
 .project-row {
-  min-height: 86px;
+  min-height: 80px;
   display: grid;
-  grid-template-columns: 34px minmax(300px, 1fr) minmax(170px, 0.35fr) 100px minmax(170px, 0.35fr) 104px;
-  gap: 12px;
+  grid-template-columns: 24px minmax(250px, 1fr) minmax(130px, 0.35fr) 70px minmax(150px, 0.3fr) 200px;
+  gap: 8px;
   align-items: center;
   border-bottom: 1px solid #75ddcb;
-  padding: 0 18px;
+  padding: 0 10px;
 }
 
 .project-row-head {
@@ -433,26 +659,32 @@ function accessLabel(project: Project) {
 
 .row-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: end;
-  gap: 8px;
+  gap: 6px;
 }
 
-.icon-button {
-  width: 38px;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  padding: 0;
+.text-action {
+  min-height: 26px;
+  border: 1.5px solid #d5f6ef;
+  border-radius: 999px;
+  background: #fff;
+  color: #34384a;
+  padding: 0 8px;
+  font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.75rem;
 }
 
-.icon-button img {
-  width: 34px;
-  height: 34px;
-  display: block;
-  object-fit: contain;
+.text-action.primary {
+  border-color: #715cff;
+  color: #715cff;
+}
+
+.danger-action {
+  border-color: #ffb7bf;
+  color: #d91f2d;
 }
 
 @media (max-width: 860px) {
@@ -461,28 +693,129 @@ function accessLabel(project: Project) {
   }
 
   .projects-content {
-    padding: 28px 16px 74px;
+    padding: 16px 8px 40px 8px;
   }
 
   .projects-header {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .header-actions {
     justify-items: start;
-    gap: 16px;
+    gap: 8px;
   }
 
-  .project-table {
-    overflow-x: auto;
+  .project-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 8px;
   }
 
   .project-row {
-    min-width: 900px;
+    min-height: 70px;
   }
 
   .project-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .projects-frame {
+    margin: 1px;
     grid-template-columns: 1fr;
+    border-radius: 12px;
+  }
+
+  .projects-content {
+    padding: 12px 6px 30px 6px;
+  }
+
+  .projects-header h1 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+  }
+
+  .projects-header p {
+    font-size: 0.9rem;
+  }
+
+  .project-filters {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .project-filters label {
+    font-size: 0.75rem;
+  }
+
+  .project-filters input,
+  .project-filters select {
+    min-height: 28px;
+    padding: 0 6px;
+    font-size: 0.8rem;
+  }
+
+  .clear-filter-button {
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 0.75rem;
+  }
+
+  .project-stats {
+    gap: 8px;
+  }
+
+  .project-stats article {
+    min-height: 60px;
+    padding: 8px 10px;
+  }
+
+  .project-stats strong {
+    font-size: 1.2rem;
+  }
+
+  .project-row {
+    grid-template-columns: 16px minmax(60px, 1fr) minmax(60px, 0.25fr) 50px minmax(60px, 0.25fr) 60px;
+    gap: 4px;
+    padding: 0 6px;
+    min-height: 75px;
+  }
+
+  .project-title-button {
+    font-size: 0.85rem;
+  }
+
+  .project-main-cell small {
+    font-size: 0.7rem;
+  }
+
+  .project-meta span {
+    max-width: 100px;
+    font-size: 0.7rem;
+  }
+
+  .progress-cell strong,
+  .tasks-count,
+  .project-row time {
+    font-size: 0.75rem;
+  }
+
+  .progress-cell {
+    gap: 4px;
+  }
+
+  .progress-track {
+    height: 6px;
+  }
+
+  .icon-button {
+    width: 24px;
+  }
+
+  .icon-button img {
+    width: 18px;
+    height: 18px;
   }
 }
 </style>

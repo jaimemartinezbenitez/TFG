@@ -215,14 +215,15 @@ function itemClass(item: CalendarItem) {
 .calendar-content {
   position: relative;
   min-width: 0;
-  padding: 62px 42px 74px;
+  padding: 32px 12px 50px 16px;
 }
 
 .calendar-page-header {
+  width: min(100%, 1180px);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
+  gap: 12px;
 }
 
 .calendar-page-header h1 {
@@ -258,10 +259,10 @@ function itemClass(item: CalendarItem) {
 }
 
 .calendar-layout {
-  margin-top: 0;
+  margin-top: 12px;
   display: grid;
-  grid-template-columns: minmax(640px, 1fr) minmax(240px, 320px);
-  gap: 28px;
+  grid-template-columns: minmax(500px, 1fr) minmax(200px, 280px);
+  gap: 16px;
   align-items: start;
 }
 
@@ -273,11 +274,11 @@ function itemClass(item: CalendarItem) {
 }
 
 .month-header {
-  min-height: 62px;
+  min-height: 50px;
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 0 14px;
+  gap: 14px;
+  padding: 0 10px;
   color: #fff;
   background: #6759f6;
 }
@@ -294,12 +295,12 @@ function itemClass(item: CalendarItem) {
 }
 
 .month-actions button {
-  width: 32px;
-  height: 34px;
+  width: 28px;
+  height: 30px;
   border: 0;
   background: transparent;
   color: #fff;
-  font-size: 2.8rem;
+  font-size: 2.2rem;
   line-height: 0.8;
   cursor: pointer;
 }
@@ -326,10 +327,10 @@ function itemClass(item: CalendarItem) {
 
 .calendar-day {
   position: relative;
-  min-height: 104px;
+  min-height: 90px;
   border-right: 2px solid #2f82e8;
   border-bottom: 2px solid #2f82e8;
-  padding: 22px 7px 6px;
+  padding: 16px 5px 4px;
   overflow: hidden;
 }
 
@@ -361,17 +362,17 @@ function itemClass(item: CalendarItem) {
 }
 
 .calendar-item {
-  min-height: 24px;
-  border: 1.5px solid currentColor;
-  border-radius: 3px;
+  min-height: 20px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
   background: #fff;
-  padding: 2px 4px;
+  padding: 1px 3px;
   overflow: hidden;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.62rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -394,12 +395,12 @@ function itemClass(item: CalendarItem) {
 
 .upcoming-panel {
   border-left: 4px solid #715cff;
-  padding-left: 18px;
+  padding-left: 12px;
 }
 
 .upcoming-panel h2 {
-  margin: 0 0 16px;
-  font-size: 1.15rem;
+  margin: 0 0 12px;
+  font-size: 1rem;
 }
 
 .upcoming-panel ul {
@@ -414,10 +415,10 @@ function itemClass(item: CalendarItem) {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
+  gap: 4px 8px;
   border: 0;
   border-bottom: 1px solid #75ddcb;
-  padding: 8px 0;
+  padding: 6px 0;
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -447,6 +448,7 @@ function itemClass(item: CalendarItem) {
 @media (max-width: 960px) {
   .calendar-layout {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .calendar-board {
@@ -456,7 +458,11 @@ function itemClass(item: CalendarItem) {
   .weekday-row,
   .calendar-grid,
   .month-header {
-    min-width: 920px;
+    min-width: 700px;
+  }
+
+  .calendar-day {
+    min-height: 80px;
   }
 }
 
@@ -466,7 +472,96 @@ function itemClass(item: CalendarItem) {
   }
 
   .calendar-content {
-    padding: 82px 16px 74px;
+    padding: 16px 8px 40px 8px;
+  }
+
+  .calendar-page-header h1 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+  }
+
+  .weekday-row,
+  .calendar-grid,
+  .month-header {
+    min-width: 600px;
+  }
+
+  .upcoming-panel h2 {
+    font-size: 0.95rem;
+  }
+
+  .upcoming-panel button {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .calendar-frame {
+    margin: 1px;
+    border-radius: 12px;
+  }
+
+  .calendar-content {
+    padding: 12px 6px 30px 6px;
+  }
+
+  .calendar-page-header h1 {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+  }
+
+  .weekday-row,
+  .calendar-grid,
+  .month-header {
+    min-width: 450px;
+  }
+
+  .weekday-row strong {
+    min-height: 32px;
+    font-size: 0.75rem;
+  }
+
+  .calendar-day {
+    min-height: 70px;
+    padding: 12px 4px 2px;
+  }
+
+  .day-number {
+    font-size: 0.65rem;
+  }
+
+  .calendar-item {
+    min-height: 18px;
+    font-size: 0.58rem;
+    padding: 0px 2px;
+  }
+
+  .month-header h2 {
+    font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  }
+
+  .upcoming-panel {
+    padding-left: 10px;
+  }
+
+  .upcoming-panel h2 {
+    font-size: 0.9rem;
+    margin: 0 0 10px;
+  }
+
+  .upcoming-panel ul {
+    gap: 8px;
+  }
+
+  .upcoming-panel button {
+    padding: 4px 0;
+    font-size: 0.75rem;
+  }
+
+  .upcoming-panel span {
+    font-size: 0.7rem;
+  }
+
+  .upcoming-panel small {
+    font-size: 0.65rem;
   }
 }
 </style>

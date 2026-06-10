@@ -243,24 +243,24 @@ function fallbackConsecutiveDays() {
       </button>
 
       <div class="statistics-header">
-        <div>
+        <div class="statistics-title-block">
           <h1>Estadísticas</h1>
           <p class="period-copy">{{ periodLabel }} · {{ periodRangeLabel }}</p>
-        </div>
 
-        <div class="period-controls" aria-label="Seleccionar periodo de estadísticas">
-          <div class="period-tabs">
-            <button
-              v-for="option in periodOptions"
-              :key="option.value"
-              type="button"
-              :class="{ active: selectedPeriod === option.value }"
-              @click="changePeriod(option.value)"
-            >
-              {{ option.label }}
-            </button>
+          <div class="period-controls" aria-label="Seleccionar periodo de estadísticas">
+            <div class="period-tabs">
+              <button
+                v-for="option in periodOptions"
+                :key="option.value"
+                type="button"
+                :class="{ active: selectedPeriod === option.value }"
+                @click="changePeriod(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <input type="date" :value="selectedDateValue" @change="changeDate" />
           </div>
-          <input type="date" :value="selectedDateValue" @change="changeDate" />
         </div>
       </div>
 
@@ -404,10 +404,11 @@ function fallbackConsecutiveDays() {
 }
 
 .statistics-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: end;
+  display: block;
+}
+
+.statistics-title-block {
+  max-width: 760px;
 }
 
 h1 {
@@ -423,14 +424,19 @@ h1 {
 }
 
 .period-controls {
-  display: grid;
-  gap: 10px;
-  justify-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 18px;
 }
 
 .period-tabs {
   display: inline-flex;
   gap: 8px;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
   padding: 4px;
   border: 2px solid #715cff;
   border-radius: 999px;

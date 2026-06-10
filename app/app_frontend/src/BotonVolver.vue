@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 <style scoped>
 .back-button {
-  position: fixed;
+  position: absolute;
   top: 18px;
   left: 232px;
   z-index: 9999;

@@ -210,7 +210,7 @@ function formatDate(value?: string | null) {
 .task-edit-content {
   position: relative;
   min-width: 0;
-  padding: 62px 40px 74px 34px;
+  padding: 62px 28px 74px;
 }
 
 .avatar-button {
@@ -238,7 +238,7 @@ function formatDate(value?: string | null) {
 }
 
 .edit-header {
-  width: calc(100% - 90px);
+  width: min(100%, 1180px);
 }
 
 .edit-header h1 {
@@ -255,10 +255,10 @@ function formatDate(value?: string | null) {
 }
 
 .edit-layout {
-  width: 100%;
+  width: min(100%, 1180px);
   margin-top: 10px;
   display: grid;
-  grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 0.75fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(300px, 0.75fr);
   gap: 28px;
   align-items: start;
 }

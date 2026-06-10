@@ -183,7 +183,7 @@ function formatDate(value?: string | null) {
 .project-edit-content {
   position: relative;
   min-width: 0;
-  padding: 62px 40px 74px 34px;
+  padding: 62px 28px 74px;
 }
 
 .avatar-button {
@@ -211,7 +211,7 @@ function formatDate(value?: string | null) {
 }
 
 .edit-header {
-  width: calc(100% - 90px);
+  width: min(100%, 1180px);
 }
 
 .edit-header h1 {
@@ -228,10 +228,10 @@ function formatDate(value?: string | null) {
 }
 
 .edit-layout {
-  width: 100%;
+  width: min(100%, 1180px);
   margin-top: 10px;
   display: grid;
-  grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 0.75fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(300px, 0.75fr);
   gap: 28px;
   align-items: start;
 }
@@ -368,6 +368,18 @@ textarea::placeholder {
   }
 }
 
+@media (max-width: 900px) {
+  .edit-layout {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .form-actions {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
 @media (max-width: 860px) {
   .project-edit-frame {
     grid-template-columns: 1fr;
@@ -377,9 +389,96 @@ textarea::placeholder {
     padding: 82px 20px 74px;
   }
 
+  .edit-header h1 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  .edit-header p {
+    font-size: 0.9rem;
+  }
+
   .form-actions,
   .detail-panel dl {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .project-edit-frame {
+    margin: 1px;
+    border-radius: 12px;
+  }
+
+  .project-edit-content {
+    padding: 82px 12px 40px;
+  }
+
+  .edit-header h1 {
+    font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+  }
+
+  .edit-header {
+    width: 100%;
+  }
+
+  .edit-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 6px;
+  }
+
+  h2 {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .form-grid {
+    gap: 8px;
+  }
+
+  label {
+    font-size: 0.75rem;
+  }
+
+  input,
+  textarea {
+    border-width: 1.5px;
+  }
+
+  input,
+  select {
+    height: 26px;
+    padding: 0 4px;
+    font-size: 0.8rem;
+  }
+
+  textarea {
+    min-height: 80px;
+    padding: 4px;
+    font-size: 0.8rem;
+  }
+
+  .form-actions {
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .cancel-button,
+  .save-button {
+    height: 28px;
+    font-size: 0.75rem;
+  }
+
+  .detail-panel {
+    padding: 10px;
+  }
+
+  .detail-panel dl {
+    gap: 8px;
+  }
+
+  .detail-panel dd {
+    font-size: 0.8rem;
   }
 }
 </style>

@@ -101,25 +101,6 @@ ALTER ROLE alumnodb SET timezone TO 'Europe/Madrid';
 GRANT ALL PRIVILEGES ON DATABASE app TO alumnodb;
 \q
 ```
-
-Importante: no pegar comandos `psql -c` con comillas incompletas.
-Si el terminal muestra el símbolo `>`, significa que una comilla se ha quedado abierta.
-En ese caso, cancelar con `Ctrl+C` y usar el método anterior entrando con `sudo -u postgres psql`.
-
-Si el usuario ya existe, PostgreSQL mostrará un error. En ese caso, usar dentro de PostgreSQL:
-
-```sql
-ALTER USER alumnodb WITH PASSWORD 'alumnodb';
-```
-
-Si la base de datos `app` no existe, crearla dentro de PostgreSQL:
-
-```sql
-CREATE DATABASE app OWNER alumnodb;
-GRANT ALL PRIVILEGES ON DATABASE app TO alumnodb;
-\q
-```
-
 Para comprobar que la conexión funciona:
 
 ```bash
@@ -138,20 +119,6 @@ Para salir de PostgreSQL:
 \q
 ```
 
-Si aparece el error `database "app" does not exist`, significa que el usuario existe pero falta crear la base de datos `app`. En ese caso, volver a entrar con:
-
-```bash
-sudo -u postgres psql
-```
-
-Y ejecutar:
-
-```sql
-CREATE DATABASE app OWNER alumnodb;
-GRANT ALL PRIVILEGES ON DATABASE app TO alumnodb;
-\q
-```
-
 ## Arrancar el backend
 Desde la carpeta `app` del proyecto:
 
@@ -164,25 +131,14 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-El backend debe quedar arrancado en:
-
-```text
-http://localhost:8000
-```
-
 ## Arrancar el frontend
 En otra terminal, desde la carpeta `app` del proyecto:
 
 ```bash
 cd app_frontend
+sudo apt install npm
 npm install
 npm run dev
-```
-
-El frontend debe quedar arrancado en:
-
-```text
-http://localhost:5173
 ```
 
 ## Acceso a la aplicación
@@ -235,63 +191,3 @@ npm run build-only
 - Las dependencias no se incluyen en el ZIP; se instalan con pip install y npm install.
 - El entorno virtual, node_modules, dist, cachés y archivos de cobertura están excluidos del proyecto.
 - La recuperación de contraseña no usa SMTP: genera un token temporal desde la propia interfaz.
-
-## Problemas frecuentes
-
-Si PostgreSQL no arranca y aparece un error parecido a:
-
-```text
-connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed
-```
-
-Comprobar el estado del servicio y de los clusters:
-
-```bash
-sudo systemctl status postgresql
-pg_lsclusters
-```
-
-Si el cluster aparece como `down`, arrancarlo:
-
-```bash
-sudo pg_ctlcluster 14 main start
-```
-
-Si no aparece ningún cluster, crearlo:
-
-```bash
-sudo pg_createcluster 14 main --start
-```
-
-Si el terminal muestra `>` después de pegar un comando de PostgreSQL, significa que se ha quedado una comilla abierta.
-Cancelar con `Ctrl+C` y volver a ejecutar los comandos entrando primero con:
-
-```bash
-sudo -u postgres psql
-```
-
-Si al conectar aparece:
-
-```text
-database "app" does not exist
-```
-
-Crear la base de datos:
-
-```bash
-sudo -u postgres psql
-```
-
-```sql
-CREATE DATABASE app OWNER alumnodb;
-GRANT ALL PRIVILEGES ON DATABASE app TO alumnodb;
-\q
-```
-
-Si al ejecutar `npm install` o `npm run dev` aparece un error de versión de Node, comprobar:
-
-```bash
-node --version
-```
-
-Debe ser Node.js 20.19.0 o superior, o Node.js 22.12.0 o superior.

@@ -2707,7 +2707,241 @@ onMounted(() => {
 }
 
 .app-shell {
+  position: relative;
   min-height: 100vh;
+  overflow-x: hidden;
+  --fixed-footer-space: 72px;
+}
+
+.app-shell :global(.dashboard-content),
+.app-shell :global(.profile-content),
+.app-shell :global(.tasks-content),
+.app-shell :global(.task-content),
+.app-shell :global(.task-form-content),
+.app-shell :global(.task-edit-content),
+.app-shell :global(.delete-content),
+.app-shell :global(.projects-content),
+.app-shell :global(.project-content),
+.app-shell :global(.project-form-content),
+.app-shell :global(.project-edit-content),
+.app-shell :global(.calendar-content),
+.app-shell :global(.statistics-content),
+.app-shell :global(.achievements-content),
+.app-shell :global(.export-content),
+.app-shell :global(.techniques-content),
+.app-shell :global(.timer-content),
+.app-shell :global(.break-content),
+.app-shell :global(.summary-content),
+.app-shell :global(.blocking-content) {
+  min-width: 0;
+  max-width: 100%;
+  padding-right: clamp(18px, 3vw, 44px) !important;
+  padding-bottom: var(--fixed-footer-space) !important;
+  padding-left: clamp(18px, 3vw, 44px) !important;
+}
+
+.app-shell :global(.dashboard-content),
+.app-shell :global(.profile-content),
+.app-shell :global(.tasks-content),
+.app-shell :global(.task-content),
+.app-shell :global(.task-form-content),
+.app-shell :global(.task-edit-content),
+.app-shell :global(.delete-content),
+.app-shell :global(.projects-content),
+.app-shell :global(.project-content),
+.app-shell :global(.project-form-content),
+.app-shell :global(.project-edit-content),
+.app-shell :global(.calendar-content),
+.app-shell :global(.statistics-content),
+.app-shell :global(.achievements-content),
+.app-shell :global(.export-content),
+.app-shell :global(.techniques-content),
+.app-shell :global(.timer-content),
+.app-shell :global(.break-content),
+.app-shell :global(.summary-content),
+.app-shell :global(.blocking-content) {
+  align-items: stretch !important;
+}
+
+.app-shell :global(.dashboard-header),
+.app-shell :global(.dashboard-layout),
+.app-shell :global(.tasks-header),
+.app-shell :global(.task-filters),
+.app-shell :global(.task-stats),
+.app-shell :global(.task-table-shell),
+.app-shell :global(.projects-header),
+.app-shell :global(.project-stats),
+.app-shell :global(.project-table-shell),
+.app-shell :global(.calendar-header),
+.app-shell :global(.calendar-layout),
+.app-shell :global(.statistics-header),
+.app-shell :global(.statistics-message),
+.app-shell :global(.summary-cards),
+.app-shell :global(.statistics-grid),
+.app-shell :global(.achievements-header),
+.app-shell :global(.period-tabs),
+.app-shell :global(.achievements-grid),
+.app-shell :global(.screen-message),
+.app-shell :global(.techniques-header),
+.app-shell :global(.technique-flow),
+.app-shell :global(.active-sessions),
+.app-shell :global(.technique-grid),
+.app-shell :global(.history-section),
+.app-shell :global(.export-panel),
+.app-shell :global(.task-heading),
+.app-shell :global(.task-detail-grid),
+.app-shell :global(.share-panel),
+.app-shell :global(.project-heading),
+.app-shell :global(.project-detail-grid),
+.app-shell :global(.project-tasks-panel),
+.app-shell :global(.timer-shell),
+.app-shell :global(.summary-panel),
+.app-shell :global(.blocking-layout) {
+  max-width: 1180px !important;
+  margin-right: auto !important;
+  margin-left: 0 !important;
+}
+
+.app-shell :global(.statistics-content),
+.app-shell :global(.achievements-content),
+.app-shell :global(.export-content),
+.app-shell :global(.techniques-content),
+.app-shell :global(.timer-content),
+.app-shell :global(.break-content),
+.app-shell :global(.summary-content),
+.app-shell :global(.blocking-content) {
+  justify-content: flex-start !important;
+}
+
+.app-shell :global(.statistics-header),
+.app-shell :global(.achievements-header),
+.app-shell :global(.techniques-header) {
+  text-align: left !important;
+}
+
+.app-shell :global(.dashboard-header p),
+.app-shell :global(.tasks-header p),
+.app-shell :global(.projects-header p),
+.app-shell :global(.techniques-header .lead),
+.app-shell :global(.statistics-header .period-copy),
+.app-shell :global(.achievements-header p),
+.app-shell :global(.export-header .export-copy),
+.app-shell :global(.edit-header p),
+.app-shell :global(.blocking-header .lead) {
+  color: #6d7180 !important;
+  font-size: 1.04rem !important;
+  line-height: 1.35 !important;
+  font-weight: 400 !important;
+}
+
+.app-shell :global(.export-content) {
+  align-items: flex-start !important;
+}
+
+.app-shell :global(.timer-content),
+.app-shell :global(.break-content),
+.app-shell :global(.summary-content) {
+  align-items: center !important;
+}
+
+.app-shell :global(.timer-content > *),
+.app-shell :global(.break-content > *),
+.app-shell :global(.summary-content > *) {
+  width: min(100%, 660px);
+  margin-right: auto !important;
+  margin-left: 0 !important;
+  text-align: center;
+}
+
+.app-shell :global(.dashboard-content > .avatar-button),
+.app-shell :global(.profile-content > .avatar-button),
+.app-shell :global(.tasks-content .avatar-button),
+.app-shell :global(.projects-content .avatar-button),
+.app-shell :global(.task-content > .avatar-button),
+.app-shell :global(.task-form-content > .avatar-button),
+.app-shell :global(.task-edit-content > .avatar-button),
+.app-shell :global(.delete-content > .avatar-button),
+.app-shell :global(.project-content > .avatar-button),
+.app-shell :global(.project-form-content > .avatar-button),
+.app-shell :global(.project-edit-content > .avatar-button),
+.app-shell :global(.calendar-content > .avatar-button),
+.app-shell :global(.statistics-content > .avatar-button),
+.app-shell :global(.achievements-content > .avatar-button),
+.app-shell :global(.export-content > .avatar-button),
+.app-shell :global(.techniques-content > .avatar-button),
+.app-shell :global(.timer-content > .avatar-button),
+.app-shell :global(.break-content > .avatar-button),
+.app-shell :global(.summary-content > .avatar-button),
+.app-shell :global(.blocking-content > .avatar-button) {
+  top: 24px !important;
+  right: max(clamp(18px, 3vw, 44px), calc(100% - 1180px)) !important;
+  width: 62px !important;
+  height: 62px !important;
+  aspect-ratio: 1 / 1 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-width: 5px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(#8794ea 0 0) center 14px / 24px 24px no-repeat,
+    linear-gradient(#8794ea 0 0) center 39px / 42px 18px no-repeat,
+    #f8f8ff !important;
+}
+
+.app-shell :global(.avatar-button > span) {
+  position: relative !important;
+  top: -5px !important;
+  display: block !important;
+  min-width: 0 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+.app-shell.has-back-button :global(.profile-content > .avatar-button),
+.app-shell.has-back-button :global(.task-content > .avatar-button),
+.app-shell.has-back-button :global(.task-form-content > .avatar-button),
+.app-shell.has-back-button :global(.task-edit-content > .avatar-button),
+.app-shell.has-back-button :global(.delete-content > .avatar-button),
+.app-shell.has-back-button :global(.project-content > .avatar-button),
+.app-shell.has-back-button :global(.project-form-content > .avatar-button),
+.app-shell.has-back-button :global(.project-edit-content > .avatar-button),
+.app-shell.has-back-button :global(.statistics-content > .avatar-button),
+.app-shell.has-back-button :global(.achievements-content > .avatar-button),
+.app-shell.has-back-button :global(.export-content > .avatar-button),
+.app-shell.has-back-button :global(.techniques-content > .avatar-button),
+.app-shell.has-back-button :global(.timer-content > .avatar-button),
+.app-shell.has-back-button :global(.break-content > .avatar-button),
+.app-shell.has-back-button :global(.summary-content > .avatar-button),
+.app-shell.has-back-button :global(.blocking-content > .avatar-button) {
+  top: 112px !important;
+}
+
+.app-shell :global(.dashboard-frame),
+.app-shell :global(.profile-frame),
+.app-shell :global(.tasks-frame),
+.app-shell :global(.task-frame),
+.app-shell :global(.task-form-frame),
+.app-shell :global(.task-edit-frame),
+.app-shell :global(.delete-frame),
+.app-shell :global(.projects-frame),
+.app-shell :global(.project-frame),
+.app-shell :global(.project-form-frame),
+.app-shell :global(.project-edit-frame),
+.app-shell :global(.calendar-frame),
+.app-shell :global(.statistics-frame),
+.app-shell :global(.achievements-frame),
+.app-shell :global(.export-frame),
+.app-shell :global(.techniques-frame),
+.app-shell :global(.timer-frame),
+.app-shell :global(.break-frame),
+.app-shell :global(.summary-frame),
+.app-shell :global(.blocking-frame) {
+  width: calc(100vw - 6px);
+  max-width: calc(100vw - 6px);
 }
 
 .app-shell.has-back-button :global(.profile-content),
@@ -2728,7 +2962,7 @@ onMounted(() => {
 .app-shell.has-back-button :global(.break-content),
 .app-shell.has-back-button :global(.summary-content),
 .app-shell.has-back-button :global(.blocking-content) {
-  padding-top: 112px;
+  padding-top: 112px !important;
 }
 
 .app-shell.has-back-button :global(.tasks-content),
@@ -2741,20 +2975,49 @@ onMounted(() => {
 .app-shell.has-back-button :global(.project-form-content),
 .app-shell.has-back-button :global(.project-edit-content),
 .app-shell.has-back-button :global(.calendar-content) {
-  padding-top: 136px;
+  padding-top: 112px !important;
 }
 
+@media (max-width: 860px) {
+  .app-shell :global(.dashboard-content),
+  .app-shell :global(.profile-content),
+  .app-shell :global(.tasks-content),
+  .app-shell :global(.task-content),
+  .app-shell :global(.task-form-content),
+  .app-shell :global(.task-edit-content),
+  .app-shell :global(.delete-content),
+  .app-shell :global(.projects-content),
+  .app-shell :global(.project-content),
+  .app-shell :global(.project-form-content),
+  .app-shell :global(.project-edit-content),
+  .app-shell :global(.calendar-content),
+  .app-shell :global(.statistics-content),
+  .app-shell :global(.achievements-content),
+  .app-shell :global(.export-content),
+  .app-shell :global(.techniques-content),
+  .app-shell :global(.timer-content),
+  .app-shell :global(.break-content),
+  .app-shell :global(.summary-content),
+  .app-shell :global(.blocking-content) {
+    padding-right: 16px !important;
+    padding-left: 16px !important;
+  }
+}
 
 .app-footer {
   position: fixed;
-  right: 18px;
-  bottom: 12px;
-  left: 18px;
-  z-index: 20;
-  padding: 4px 10px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 18px;
   color: #555967;
-  background: rgb(255 255 255 / 82%);
-  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  border-top: 1px solid rgb(113 92 255 / 14%);
   text-align: center;
   font-size: 0.72rem;
   line-height: 1.35;
@@ -2762,11 +3025,13 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
+  .app-shell {
+    --fixed-footer-space: 88px;
+  }
+
   .app-footer {
-    right: 10px;
-    bottom: 8px;
-    left: 10px;
-    border-radius: 10px;
+    min-height: 54px;
+    padding: 8px 12px;
     font-size: 0.66rem;
   }
 }

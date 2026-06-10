@@ -138,25 +138,26 @@ function roleLabel(role: CollaboratorRole) {
 .task-form-content {
   position: relative;
   min-width: 0;
-  padding: 62px 52px 74px 34px;
+  padding: 32px 20px 50px 16px;
 }
 
 .avatar-button {
   position: absolute;
-  top: 10px;
-  right: 24px;
-  width: 62px;
+  top: 8px;
+  right: 12px;
+  width: 50px;
   aspect-ratio: 1;
   display: grid;
   place-items: center;
-  border: 5px solid #715cff;
+  border: 4px solid #715cff;
   border-radius: 50%;
   color: #fff;
   background:
-    linear-gradient(#8794ea 0 0) center 14px / 24px 24px no-repeat,
-    linear-gradient(#8794ea 0 0) center 39px / 42px 18px no-repeat,
+    linear-gradient(#8794ea 0 0) center 11px / 20px 20px no-repeat,
+    linear-gradient(#8794ea 0 0) center 31px / 34px 15px no-repeat,
     #f8f8ff;
   cursor: pointer;
+  font-size: 0.8rem;
 }
 
 .avatar-button span {
@@ -166,30 +167,30 @@ function roleLabel(role: CollaboratorRole) {
 }
 
 h1 {
-  margin: 0 0 8px;
-  font-size: clamp(2.85rem, 5vw, 3.65rem);
+  margin: 0 0 6px;
+  font-size: clamp(2rem, 4vw, 2.8rem);
   line-height: 1;
 }
 
 h2 {
-  margin: 0 0 14px;
-  font-size: 1.35rem;
+  margin: 0 0 12px;
+  font-size: 1.1rem;
 }
 
 .task-form {
-  max-width: 920px;
+  max-width: 100%;
   display: grid;
-  grid-template-columns: minmax(300px, 1.1fr) minmax(250px, 0.85fr);
-  gap: 20px 34px;
+  grid-template-columns: minmax(250px, 1fr) minmax(200px, 0.8fr);
+  gap: 16px 20px;
 }
 
 .form-section {
   display: grid;
   align-content: start;
-  gap: 10px;
-  padding: 16px 18px 18px;
+  gap: 8px;
+  padding: 12px 14px 14px;
   border: 1.5px solid #a6f1df;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fbfffe;
 }
 
@@ -309,7 +310,7 @@ select {
 @media (max-width: 900px) {
   .task-form {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 14px;
   }
 
   .main-fields,
@@ -320,6 +321,7 @@ select {
 
   .form-actions {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
 
@@ -329,7 +331,92 @@ select {
   }
 
   .task-form-content {
-    padding: 82px 20px 74px;
+    padding: 16px 8px 40px 8px;
+  }
+
+  h1 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  h2 {
+    font-size: 0.95rem;
+  }
+
+  .avatar-button {
+    top: 6px;
+    right: 6px;
+    width: 40px;
+    border-width: 3px;
+  }
+}
+
+@media (max-width: 600px) {
+  .task-form-frame {
+    margin: 1px;
+    border-radius: 12px;
+  }
+
+  .task-form-content {
+    padding: 12px 6px 30px 6px;
+  }
+
+  h1 {
+    font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+  }
+
+  .task-form {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-section {
+    gap: 6px;
+    padding: 10px 10px 10px;
+  }
+
+  .section-title span {
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+  }
+
+  .section-title strong {
+    font-size: 0.9rem;
+  }
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  input,
+  select,
+  textarea {
+    border-width: 1.5px;
+  }
+
+  input,
+  select {
+    height: 26px;
+    padding: 0 4px;
+    font-size: 0.8rem;
+  }
+
+  textarea {
+    min-height: 80px;
+    padding: 4px;
+    font-size: 0.8rem;
+  }
+
+  .form-actions {
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .cancel-button,
+  .save-button {
+    height: 28px;
+    font-size: 0.75rem;
   }
 }
 </style>
