@@ -117,7 +117,7 @@ function handleNavigation(section: string) {
                 id="newPassword"
                 v-model="props.form.password"
                 :type="showNewPassword ? 'text' : 'password'"
-                maxlength="12"
+                minlength="8"
                 autocomplete="new-password"
                 placeholder="Opcional"
               />

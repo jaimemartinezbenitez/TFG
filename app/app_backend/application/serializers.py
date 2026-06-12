@@ -74,7 +74,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, max_length=12, validators=[validate_password])
+    password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
 
     class Meta:
         model = User
@@ -100,7 +100,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True, max_length=12, validators=[validate_password])
+    password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
 
     def validate_old_password(self, value):
         user = self.context['request'].user
@@ -162,7 +162,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     token = serializers.CharField()
-    password = serializers.CharField(write_only=True, max_length=12, validators=[validate_password])
+    password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
 
     def validate_token(self, value):
         reset_token = PasswordResetToken.objects.filter(token=value).select_related('user').first()

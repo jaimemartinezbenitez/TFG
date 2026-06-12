@@ -63,7 +63,7 @@ const showConfirmPassword = ref(false)
               id="resetPassword"
               v-model="props.form.password"
               required
-              maxlength="12"
+              minlength="8"
               :type="showPassword ? 'text' : 'password'"
               autocomplete="new-password"
             />
@@ -83,7 +83,7 @@ const showConfirmPassword = ref(false)
               id="resetConfirmPassword"
               v-model="props.form.confirmPassword"
               required
-              maxlength="12"
+              minlength="8"
               :type="showConfirmPassword ? 'text' : 'password'"
               autocomplete="new-password"
             />

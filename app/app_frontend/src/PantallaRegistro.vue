@@ -56,7 +56,7 @@ const showConfirmPassword = ref(false)
               v-model="props.registerForm.password"
               required
               :type="showPassword ? 'text' : 'password'"
-              maxlength="12"
+              minlength="8"
               autocomplete="new-password"
             />
             <button
@@ -78,7 +78,7 @@ const showConfirmPassword = ref(false)
               v-model="props.registerForm.confirmPassword"
               required
               :type="showConfirmPassword ? 'text' : 'password'"
-              maxlength="12"
+              minlength="8"
               autocomplete="new-password"
             />
             <button
